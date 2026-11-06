@@ -1,5 +1,7 @@
 # Sistema de ventas con facturación electrónica SUNAT — Backend
 
+[![Pruebas](https://github.com/yorchavez9/SISTEMAS-CURSO-BACKEND/actions/workflows/tests.yml/badge.svg)](https://github.com/yorchavez9/SISTEMAS-CURSO-BACKEND/actions/workflows/tests.yml)
+
 API en Laravel del sistema. El frontend (React) está en [SISTEMA-CURSO-FRONTEND](https://github.com/yorchavez9/SISTEMA-CURSO-FRONTEND).
 
 Sistema de ventas multiempresa con emisión de comprobantes electrónicos (facturas, boletas, notas de crédito y débito, bajas y resúmenes diarios) a través de la API de facturación `https://sunat.kodevo.es/api/v1`.

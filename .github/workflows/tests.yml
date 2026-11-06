@@ -1,0 +1,56 @@
+name: Pruebas
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  phpunit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+          MYSQL_DATABASE: sistema_ventas_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: bcmath, pdo_mysql, mbstring, zip, gd, intl
+          coverage: none
+
+      - name: Caché de Composer
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache/files
+          key: composer-${{ hashFiles('composer.lock') }}
+
+      - name: Dependencias
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Entorno
+        # .env.example ya apunta a MySQL en 127.0.0.1 con usuario root sin clave (solo CI).
+        # Las credenciales de la API no son necesarias: las pruebas usan respuestas reales capturadas.
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Pruebas
+        run: php artisan test

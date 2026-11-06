@@ -27,6 +27,12 @@ class SunatCapturaCommand extends Command
     public function handle(): int
     {
         $accion = (string) $this->argument('accion');
+        if (! is_file(base_path('../tools/api-capture/capture.php'))) {
+            // La herramienta no se publica en el repositorio (contiene respuestas reales de la cuenta).
+            $this->error('La herramienta de captura (tools/api-capture) no está en esta instalación. Solo existe en el equipo donde se hizo la Etapa 1.');
+
+            return self::FAILURE;
+        }
         $acciones = ['list', 'dry-run', 'preflight', 'setup-series', 'run', 'report'];
         if (! in_array($accion, $acciones, true)) {
             $this->error('Acción inválida. Usa: '.implode(', ', $acciones));
