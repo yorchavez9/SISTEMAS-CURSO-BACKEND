@@ -1,0 +1,50 @@
+{
+ "alias": "B-07",
+ "postman": "Boleta envío manual (enviar_automatico=false)",
+ "comprobante": "B001-000273",
+ "sunat": "aceptado",
+ "request": {
+  "serie": "B001",
+  "fecha_emision": "2026-11-05",
+  "cliente": {
+   "tipo_doc": "1",
+   "num_doc": "12345678",
+   "razon_social": "CLIENTE"
+  },
+  "items": [
+   {
+    "codigo": "P001",
+    "descripcion": "Producto",
+    "unidad": "NIU",
+    "cantidad": 1,
+    "precio_unitario": 10,
+    "tip_afe_igv": "10"
+   }
+  ],
+  "enviar_automatico": false
+ },
+ "respuesta": {
+  "totales": {
+   "gravadas": 8.47,
+   "igv": 1.53,
+   "total_impuestos": 1.53,
+   "valor_venta": 8.47,
+   "sub_total": 10,
+   "total": 10
+  },
+  "items": [
+   {
+    "codigo": "P001",
+    "descripcion": "Producto",
+    "unidad": "NIU",
+    "cantidad": 1,
+    "precio_unitario": 10,
+    "valor_unitario": 8.4746,
+    "igv": 1.53,
+    "total": 10
+   }
+  ],
+  "percepcion": null,
+  "detraccion": null
+ }
+}

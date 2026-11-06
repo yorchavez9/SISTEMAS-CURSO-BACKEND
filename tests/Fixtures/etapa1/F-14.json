@@ -1,0 +1,55 @@
+{
+ "alias": "F-14",
+ "postman": "Factura ISC (impuesto selectivo)",
+ "comprobante": "F001-000923",
+ "sunat": "aceptado",
+ "request": {
+  "serie": "F001",
+  "fecha_emision": "2026-11-05",
+  "tipo_operacion": "0101",
+  "tipo_moneda": "PEN",
+  "cliente": {
+   "tipo_doc": "6",
+   "num_doc": "20000000002",
+   "razon_social": "EMPRESA X SAC"
+  },
+  "items": [
+   {
+    "codigo": "P001",
+    "descripcion": "PROD CON ISC",
+    "unidad": "NIU",
+    "cantidad": 2,
+    "precio_unitario": 138.06,
+    "tip_afe_igv": "10",
+    "porcentaje_isc": 17,
+    "tip_sis_isc": "01"
+   }
+  ]
+ },
+ "respuesta": {
+  "totales": {
+   "gravadas": 200,
+   "igv": 42.12,
+   "isc": 34,
+   "total_impuestos": 76.12,
+   "valor_venta": 200,
+   "sub_total": 276.12,
+   "total": 276.12
+  },
+  "items": [
+   {
+    "codigo": "P001",
+    "descripcion": "PROD CON ISC",
+    "unidad": "NIU",
+    "cantidad": 2,
+    "precio_unitario": 138.06,
+    "valor_unitario": 100,
+    "igv": 42.12,
+    "isc": 34,
+    "total": 276.12
+   }
+  ],
+  "percepcion": null,
+  "detraccion": null
+ }
+}

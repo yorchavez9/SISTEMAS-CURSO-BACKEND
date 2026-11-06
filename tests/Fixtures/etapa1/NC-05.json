@@ -1,0 +1,55 @@
+{
+ "alias": "NC-05",
+ "postman": "NC - Anulación de boleta",
+ "comprobante": "BC01-000006",
+ "sunat": "aceptado",
+ "request": {
+  "serie": "BC01",
+  "fecha_emision": "2026-11-05",
+  "doc_afectado_tipo": "03",
+  "doc_afectado_serie": "B001",
+  "doc_afectado_correlativo": "270",
+  "cod_motivo": "01",
+  "des_motivo": "Anulación de la operación",
+  "cliente": {
+   "tipo_doc": "1",
+   "num_doc": "45678912",
+   "razon_social": "JUAN PEREZ ROJAS",
+   "direccion": "JR. LOS OLIVOS 123"
+  },
+  "items": [
+   {
+    "descripcion": "Producto vendido",
+    "unidad": "NIU",
+    "cantidad": 1,
+    "precio_unitario": 50.0,
+    "tip_afe_igv": "10"
+   }
+  ],
+  "tipo_moneda": "PEN"
+ },
+ "respuesta": {
+  "totales": {
+   "gravadas": 42.37,
+   "igv": 7.63,
+   "total_impuestos": 7.63,
+   "valor_venta": 42.37,
+   "sub_total": 50,
+   "total": 50
+  },
+  "items": [
+   {
+    "codigo": null,
+    "descripcion": "Producto vendido",
+    "unidad": "NIU",
+    "cantidad": 1,
+    "precio_unitario": 50,
+    "valor_unitario": 42.3729,
+    "igv": 7.63,
+    "total": 42.37
+   }
+  ],
+  "percepcion": null,
+  "detraccion": null
+ }
+}

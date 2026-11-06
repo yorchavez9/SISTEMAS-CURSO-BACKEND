@@ -1,0 +1,73 @@
+{
+ "alias": "F-13",
+ "postman": "Factura ICBPER (bolsas plásticas)",
+ "comprobante": "F001-000922",
+ "sunat": "aceptado",
+ "request": {
+  "serie": "F001",
+  "fecha_emision": "2026-11-05",
+  "tipo_operacion": "0101",
+  "tipo_moneda": "PEN",
+  "cliente": {
+   "tipo_doc": "6",
+   "num_doc": "20000000002",
+   "razon_social": "EMPRESA X SAC"
+  },
+  "items": [
+   {
+    "codigo": "P001",
+    "descripcion": "PRODUCTO 1",
+    "unidad": "NIU",
+    "cantidad": 2,
+    "precio_unitario": 118,
+    "tip_afe_igv": "10"
+   },
+   {
+    "codigo": "P002",
+    "descripcion": "BOLSA DE PLASTICO",
+    "unidad": "NIU",
+    "cantidad": 4,
+    "precio_unitario": 0.059,
+    "tip_afe_igv": "10",
+    "mto_valor_unitario": 0.05,
+    "factor_icbper": 0.2
+   }
+  ]
+ },
+ "respuesta": {
+  "totales": {
+   "gravadas": 200.2,
+   "igv": 36.04,
+   "icbper": 0.8,
+   "total_impuestos": 36.84,
+   "valor_venta": 200.2,
+   "sub_total": 237.04,
+   "total": 237.04
+  },
+  "items": [
+   {
+    "codigo": "P001",
+    "descripcion": "PRODUCTO 1",
+    "unidad": "NIU",
+    "cantidad": 2,
+    "precio_unitario": 118,
+    "valor_unitario": 100,
+    "igv": 36,
+    "total": 236
+   },
+   {
+    "codigo": "P002",
+    "descripcion": "BOLSA DE PLASTICO",
+    "unidad": "NIU",
+    "cantidad": 4,
+    "precio_unitario": 0.059,
+    "valor_unitario": 0.05,
+    "igv": 0.04,
+    "icbper": 0.8,
+    "total": 1.04
+   }
+  ],
+  "percepcion": null,
+  "detraccion": null
+ }
+}

@@ -1,0 +1,55 @@
+{
+ "alias": "NC-01",
+ "postman": "NC - Anulación total de factura",
+ "comprobante": "FC01-000017",
+ "sunat": "aceptado",
+ "request": {
+  "serie": "FC01",
+  "fecha_emision": "2026-11-05",
+  "doc_afectado_tipo": "01",
+  "doc_afectado_serie": "F001",
+  "doc_afectado_correlativo": "913",
+  "cod_motivo": "01",
+  "des_motivo": "Anulación de la operación",
+  "cliente": {
+   "tipo_doc": "6",
+   "num_doc": "20512345678",
+   "razon_social": "CLIENTE SAC",
+   "direccion": "AV. AREQUIPA 1234, LIMA"
+  },
+  "items": [
+   {
+    "descripcion": "Producto de prueba",
+    "unidad": "NIU",
+    "cantidad": 2,
+    "precio_unitario": 100.0,
+    "tip_afe_igv": "10"
+   }
+  ],
+  "tipo_moneda": "PEN"
+ },
+ "respuesta": {
+  "totales": {
+   "gravadas": 169.49,
+   "igv": 30.51,
+   "total_impuestos": 30.51,
+   "valor_venta": 169.49,
+   "sub_total": 200,
+   "total": 200
+  },
+  "items": [
+   {
+    "codigo": null,
+    "descripcion": "Producto de prueba",
+    "unidad": "NIU",
+    "cantidad": 2,
+    "precio_unitario": 100,
+    "valor_unitario": 84.7458,
+    "igv": 30.51,
+    "total": 169.49
+   }
+  ],
+  "percepcion": null,
+  "detraccion": null
+ }
+}

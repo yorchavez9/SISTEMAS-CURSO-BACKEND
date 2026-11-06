@@ -1,0 +1,62 @@
+{
+ "alias": "F-23",
+ "postman": "1% — Venta de bienes (combustible, consumo masivo)",
+ "comprobante": "F001-000931",
+ "sunat": "aceptado",
+ "request": {
+  "serie": "F001",
+  "fecha_emision": "2026-11-05",
+  "tipo_operacion": "0101",
+  "tipo_moneda": "PEN",
+  "cliente": {
+   "tipo_doc": "6",
+   "num_doc": "20000000002",
+   "razon_social": "EMPRESA X SAC"
+  },
+  "percepcion": {
+   "cod_regimen": "02",
+   "porcentaje": 1,
+   "base": 236.0,
+   "monto": 2.36
+  },
+  "items": [
+   {
+    "codigo": "P001",
+    "descripcion": "BIEN DE CONSUMO MASIVO",
+    "unidad": "NIU",
+    "cantidad": 1,
+    "precio_unitario": 236,
+    "tip_afe_igv": "10"
+   }
+  ]
+ },
+ "respuesta": {
+  "totales": {
+   "gravadas": 200,
+   "igv": 36,
+   "total_impuestos": 36,
+   "valor_venta": 200,
+   "sub_total": 236,
+   "total": 236
+  },
+  "items": [
+   {
+    "codigo": "P001",
+    "descripcion": "BIEN DE CONSUMO MASIVO",
+    "unidad": "NIU",
+    "cantidad": 1,
+    "precio_unitario": 236,
+    "valor_unitario": 200,
+    "igv": 36,
+    "total": 236
+   }
+  ],
+  "percepcion": {
+   "cod_regimen": "02",
+   "porcentaje": 1,
+   "monto": 2.36,
+   "base": 236
+  },
+  "detraccion": null
+ }
+}

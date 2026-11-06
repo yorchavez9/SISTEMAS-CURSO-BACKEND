@@ -1,0 +1,52 @@
+{
+ "alias": "AF-35",
+ "postman": "Afectación 35 (inafecto gratuito)",
+ "comprobante": "F001-000960",
+ "sunat": "aceptado",
+ "request": {
+  "items": [
+   {
+    "codigo": "P001",
+    "descripcion": "Transferencia gratuita afectación 35",
+    "unidad": "NIU",
+    "cantidad": 2,
+    "precio_unitario": 0,
+    "mto_valor_unitario": 100,
+    "tip_afe_igv": "35"
+   }
+  ],
+  "serie": "F001",
+  "fecha_emision": "2026-11-05",
+  "tipo_operacion": "0101",
+  "tipo_moneda": "PEN",
+  "cliente": {
+   "tipo_doc": "6",
+   "num_doc": "20000000002",
+   "razon_social": "EMPRESA X SAC",
+   "direccion": "AV. AREQUIPA 1234, LIMA"
+  }
+ },
+ "respuesta": {
+  "totales": {
+   "gratuitas": 200,
+   "total_impuestos": 0,
+   "valor_venta": 0,
+   "sub_total": 0,
+   "total": 0
+  },
+  "items": [
+   {
+    "codigo": "P001",
+    "descripcion": "Transferencia gratuita afectación 35",
+    "unidad": "NIU",
+    "cantidad": 2,
+    "precio_unitario": 0,
+    "valor_unitario": 0,
+    "igv": 0,
+    "total": 200
+   }
+  ],
+  "percepcion": null,
+  "detraccion": null
+ }
+}

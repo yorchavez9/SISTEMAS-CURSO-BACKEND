@@ -1,0 +1,53 @@
+{
+ "alias": "F-20",
+ "postman": "Factura envío manual (enviar_automatico=false)",
+ "comprobante": "F001-000929",
+ "sunat": "aceptado",
+ "request": {
+  "serie": "F001",
+  "fecha_emision": "2026-11-05",
+  "tipo_operacion": "0101",
+  "tipo_moneda": "PEN",
+  "forma_pago": "Contado",
+  "cliente": {
+   "tipo_doc": "6",
+   "num_doc": "20512345678",
+   "razon_social": "CLIENTE SAC"
+  },
+  "items": [
+   {
+    "codigo": "P001",
+    "descripcion": "Producto",
+    "unidad": "NIU",
+    "cantidad": 1,
+    "precio_unitario": 118,
+    "tip_afe_igv": "10"
+   }
+  ],
+  "enviar_automatico": false
+ },
+ "respuesta": {
+  "totales": {
+   "gravadas": 100,
+   "igv": 18,
+   "total_impuestos": 18,
+   "valor_venta": 100,
+   "sub_total": 118,
+   "total": 118
+  },
+  "items": [
+   {
+    "codigo": "P001",
+    "descripcion": "Producto",
+    "unidad": "NIU",
+    "cantidad": 1,
+    "precio_unitario": 118,
+    "valor_unitario": 100,
+    "igv": 18,
+    "total": 118
+   }
+  ],
+  "percepcion": null,
+  "detraccion": null
+ }
+}

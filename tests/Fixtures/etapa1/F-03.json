@@ -1,0 +1,64 @@
+{
+ "alias": "F-03",
+ "postman": "Crear factura crédito (con cuotas)",
+ "comprobante": "F001-000912",
+ "sunat": "aceptado",
+ "request": {
+  "serie": "F001",
+  "fecha_emision": "2026-11-05",
+  "fecha_vencimiento": "2027-01-05",
+  "tipo_operacion": "0101",
+  "tipo_moneda": "PEN",
+  "forma_pago": "Credito",
+  "cliente": {
+   "tipo_doc": "6",
+   "num_doc": "20512345678",
+   "razon_social": "CLIENTE SAC",
+   "direccion": "AV. AREQUIPA 1234, LIMA"
+  },
+  "items": [
+   {
+    "codigo": "P001",
+    "descripcion": "Producto",
+    "unidad": "NIU",
+    "cantidad": 10,
+    "precio_unitario": 118,
+    "tip_afe_igv": "10"
+   }
+  ],
+  "cuotas": [
+   {
+    "monto": 590,
+    "fecha_pago": "2026-12-06"
+   },
+   {
+    "monto": 590,
+    "fecha_pago": "2027-02-05"
+   }
+  ]
+ },
+ "respuesta": {
+  "totales": {
+   "gravadas": 1000,
+   "igv": 180,
+   "total_impuestos": 180,
+   "valor_venta": 1000,
+   "sub_total": 1180,
+   "total": 1180
+  },
+  "items": [
+   {
+    "codigo": "P001",
+    "descripcion": "Producto",
+    "unidad": "NIU",
+    "cantidad": 10,
+    "precio_unitario": 118,
+    "valor_unitario": 100,
+    "igv": 180,
+    "total": 1180
+   }
+  ],
+  "percepcion": null,
+  "detraccion": null
+ }
+}

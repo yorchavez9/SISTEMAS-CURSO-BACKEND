@@ -1,0 +1,53 @@
+{
+ "alias": "B-02",
+ "postman": "Boleta con codigo productos sunat",
+ "comprobante": "B001-000270",
+ "sunat": "aceptado",
+ "request": {
+  "serie": "B001",
+  "fecha_emision": "2026-11-05",
+  "tipo_operacion": "0101",
+  "tipo_moneda": "PEN",
+  "cliente": {
+   "tipo_doc": "1",
+   "num_doc": "45678912",
+   "razon_social": "JUAN PEREZ ROJAS",
+   "direccion": "JR. LOS OLIVOS 123"
+  },
+  "items": [
+   {
+    "codigo": "SERV-002",
+    "cod_producto_sunat": "78181500",
+    "descripcion": "Cambio de aceite y filtros",
+    "unidad": "ZZ",
+    "cantidad": 1,
+    "precio_unitario": 90,
+    "tip_afe_igv": "20"
+   }
+  ],
+  "solo_registro": false
+ },
+ "respuesta": {
+  "totales": {
+   "exoneradas": 90,
+   "total_impuestos": 0,
+   "valor_venta": 90,
+   "sub_total": 90,
+   "total": 90
+  },
+  "items": [
+   {
+    "codigo": "SERV-002",
+    "descripcion": "Cambio de aceite y filtros",
+    "unidad": "ZZ",
+    "cantidad": 1,
+    "precio_unitario": 90,
+    "valor_unitario": 90,
+    "igv": 0,
+    "total": 90
+   }
+  ],
+  "percepcion": null,
+  "detraccion": null
+ }
+}

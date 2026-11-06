@@ -1,0 +1,64 @@
+{
+ "alias": "F-24",
+ "postman": "2% — Sujeto no designado / consumidor final",
+ "comprobante": "F001-000932",
+ "sunat": "aceptado",
+ "request": {
+  "serie": "F001",
+  "fecha_emision": "2026-11-05",
+  "tipo_operacion": "0101",
+  "tipo_moneda": "PEN",
+  "cliente": {
+   "tipo_doc": "6",
+   "num_doc": "20000000002",
+   "razon_social": "EMPRESA X SAC",
+   "direccion": "AV. AREQUIPA 1234, LIMA"
+  },
+  "percepcion": {
+   "tipo_operacion": "2001",
+   "cod_regimen": "01",
+   "porcentaje": 2,
+   "base": 236,
+   "monto": 4.72
+  },
+  "items": [
+   {
+    "codigo": "P001",
+    "descripcion": "MERCADERIA",
+    "unidad": "NIU",
+    "cantidad": 1,
+    "precio_unitario": 236,
+    "tip_afe_igv": "10"
+   }
+  ]
+ },
+ "respuesta": {
+  "totales": {
+   "gravadas": 200,
+   "igv": 36,
+   "total_impuestos": 36,
+   "valor_venta": 200,
+   "sub_total": 236,
+   "total": 236
+  },
+  "items": [
+   {
+    "codigo": "P001",
+    "descripcion": "MERCADERIA",
+    "unidad": "NIU",
+    "cantidad": 1,
+    "precio_unitario": 236,
+    "valor_unitario": 200,
+    "igv": 36,
+    "total": 236
+   }
+  ],
+  "percepcion": {
+   "cod_regimen": "01",
+   "porcentaje": 2,
+   "monto": 4.72,
+   "base": 236
+  },
+  "detraccion": null
+ }
+}

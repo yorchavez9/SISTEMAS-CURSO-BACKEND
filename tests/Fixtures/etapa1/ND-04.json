@@ -1,0 +1,55 @@
+{
+ "alias": "ND-04",
+ "postman": "ND — Sobre boleta",
+ "comprobante": "BD01-000001",
+ "sunat": "aceptado",
+ "request": {
+  "serie": "BD01",
+  "fecha_emision": "2026-11-05",
+  "doc_afectado_tipo": "03",
+  "doc_afectado_serie": "B001",
+  "doc_afectado_correlativo": "274",
+  "cod_motivo": "01",
+  "des_motivo": "Intereses por mora",
+  "cliente": {
+   "tipo_doc": "1",
+   "num_doc": "12345678",
+   "razon_social": "CLIENTE PRUEBA ANTICIPO",
+   "direccion": "AV. LIMA 123"
+  },
+  "items": [
+   {
+    "descripcion": "Interés por pago tardío",
+    "unidad": "ZZ",
+    "cantidad": 1,
+    "precio_unitario": 20.0,
+    "tip_afe_igv": "10"
+   }
+  ],
+  "tipo_moneda": "PEN"
+ },
+ "respuesta": {
+  "totales": {
+   "gravadas": 16.95,
+   "igv": 3.05,
+   "total_impuestos": 3.05,
+   "valor_venta": 16.95,
+   "sub_total": 20,
+   "total": 20
+  },
+  "items": [
+   {
+    "codigo": null,
+    "descripcion": "Interés por pago tardío",
+    "unidad": "ZZ",
+    "cantidad": 1,
+    "precio_unitario": 20,
+    "valor_unitario": 16.9492,
+    "igv": 3.05,
+    "total": 16.95
+   }
+  ],
+  "percepcion": null,
+  "detraccion": null
+ }
+}

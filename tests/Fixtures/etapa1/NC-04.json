@@ -1,0 +1,55 @@
+{
+ "alias": "NC-04",
+ "postman": "NC - En dólares (USD)",
+ "comprobante": "FC01-000019",
+ "sunat": "aceptado",
+ "request": {
+  "serie": "FC01",
+  "fecha_emision": "2026-11-05",
+  "tipo_moneda": "USD",
+  "doc_afectado_tipo": "01",
+  "doc_afectado_serie": "F001",
+  "doc_afectado_correlativo": "914",
+  "cod_motivo": "01",
+  "des_motivo": "Anulación de operación en dólares",
+  "cliente": {
+   "tipo_doc": "0",
+   "num_doc": "0",
+   "razon_social": "FOREIGN CLIENT INC",
+   "direccion": "5TH AVENUE 1000, NEW YORK, USA"
+  },
+  "items": [
+   {
+    "descripcion": "Consultoría internacional",
+    "unidad": "ZZ",
+    "cantidad": 1,
+    "precio_unitario": 500.0,
+    "tip_afe_igv": "10"
+   }
+  ]
+ },
+ "respuesta": {
+  "totales": {
+   "gravadas": 423.73,
+   "igv": 76.27,
+   "total_impuestos": 76.27,
+   "valor_venta": 423.73,
+   "sub_total": 500,
+   "total": 500
+  },
+  "items": [
+   {
+    "codigo": null,
+    "descripcion": "Consultoría internacional",
+    "unidad": "ZZ",
+    "cantidad": 1,
+    "precio_unitario": 500,
+    "valor_unitario": 423.7288,
+    "igv": 76.27,
+    "total": 423.73
+   }
+  ],
+  "percepcion": null,
+  "detraccion": null
+ }
+}

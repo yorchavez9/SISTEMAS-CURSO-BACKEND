@@ -1,0 +1,53 @@
+{
+ "alias": "AF-15",
+ "postman": "Afectación 15 (gravado gratuito)",
+ "comprobante": "F001-000954",
+ "sunat": "aceptado",
+ "request": {
+  "items": [
+   {
+    "codigo": "P001",
+    "descripcion": "Transferencia gratuita afectación 15",
+    "unidad": "NIU",
+    "cantidad": 2,
+    "precio_unitario": 0,
+    "mto_valor_unitario": 100,
+    "tip_afe_igv": "15",
+    "porcentaje_igv": 18
+   }
+  ],
+  "serie": "F001",
+  "fecha_emision": "2026-11-05",
+  "tipo_operacion": "0101",
+  "tipo_moneda": "PEN",
+  "cliente": {
+   "tipo_doc": "6",
+   "num_doc": "20000000002",
+   "razon_social": "EMPRESA X SAC",
+   "direccion": "AV. AREQUIPA 1234, LIMA"
+  }
+ },
+ "respuesta": {
+  "totales": {
+   "gratuitas": 200,
+   "total_impuestos": 0,
+   "valor_venta": 0,
+   "sub_total": 0,
+   "total": 0
+  },
+  "items": [
+   {
+    "codigo": "P001",
+    "descripcion": "Transferencia gratuita afectación 15",
+    "unidad": "NIU",
+    "cantidad": 2,
+    "precio_unitario": 0,
+    "valor_unitario": 0,
+    "igv": 36,
+    "total": 236
+   }
+  ],
+  "percepcion": null,
+  "detraccion": null
+ }
+}

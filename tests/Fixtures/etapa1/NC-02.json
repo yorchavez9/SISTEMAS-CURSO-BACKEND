@@ -1,0 +1,54 @@
+{
+ "alias": "NC-02",
+ "postman": "NC - Descuento parcial",
+ "comprobante": "FC01-000018",
+ "sunat": "aceptado",
+ "request": {
+  "serie": "FC01",
+  "fecha_emision": "2026-11-05",
+  "doc_afectado_tipo": "01",
+  "doc_afectado_serie": "F001",
+  "doc_afectado_correlativo": "919",
+  "cod_motivo": "04",
+  "des_motivo": "Descuento por volumen de compra",
+  "cliente": {
+   "tipo_doc": "6",
+   "num_doc": "20000000002",
+   "razon_social": "EMPRESA X SAC"
+  },
+  "items": [
+   {
+    "descripcion": "Descuento Producto A",
+    "unidad": "NIU",
+    "cantidad": 1,
+    "precio_unitario": 60.0,
+    "tip_afe_igv": "10"
+   }
+  ],
+  "tipo_moneda": "PEN"
+ },
+ "respuesta": {
+  "totales": {
+   "gravadas": 50.85,
+   "igv": 9.15,
+   "total_impuestos": 9.15,
+   "valor_venta": 50.85,
+   "sub_total": 60,
+   "total": 60
+  },
+  "items": [
+   {
+    "codigo": null,
+    "descripcion": "Descuento Producto A",
+    "unidad": "NIU",
+    "cantidad": 1,
+    "precio_unitario": 60,
+    "valor_unitario": 50.8475,
+    "igv": 9.15,
+    "total": 50.85
+   }
+  ],
+  "percepcion": null,
+  "detraccion": null
+ }
+}

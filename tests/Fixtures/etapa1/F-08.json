@@ -1,0 +1,66 @@
+{
+ "alias": "F-08",
+ "postman": "Factura con detracción",
+ "comprobante": "F001-000917",
+ "sunat": "aceptado",
+ "request": {
+  "serie": "F001",
+  "fecha_emision": "2026-11-05",
+  "tipo_operacion": "0101",
+  "tipo_moneda": "PEN",
+  "cliente": {
+   "tipo_doc": "6",
+   "num_doc": "20000000002",
+   "razon_social": "EMPRESA X SAC",
+   "direccion": "AV. AREQUIPA 1234, LIMA"
+  },
+  "items": [
+   {
+    "codigo": "P001",
+    "descripcion": "Matenimiento preventivo de PC",
+    "unidad": "ZZ",
+    "cantidad": 1,
+    "precio_unitario": 1000,
+    "tip_afe_igv": "10"
+   }
+  ],
+  "detraccion": {
+   "tipo_operacion": "1001",
+   "cod_bien": "014",
+   "cod_medio_pago": "001",
+   "cta_banco": "0004-3342343243",
+   "porcentaje": 4.0,
+   "monto": 37.76
+  }
+ },
+ "respuesta": {
+  "totales": {
+   "gravadas": 847.46,
+   "igv": 152.54,
+   "total_impuestos": 152.54,
+   "valor_venta": 847.46,
+   "sub_total": 1000,
+   "total": 1000
+  },
+  "items": [
+   {
+    "codigo": "P001",
+    "descripcion": "Matenimiento preventivo de PC",
+    "unidad": "ZZ",
+    "cantidad": 1,
+    "precio_unitario": 1000,
+    "valor_unitario": 847.4576,
+    "igv": 152.54,
+    "total": 1000
+   }
+  ],
+  "percepcion": null,
+  "detraccion": {
+   "cod_bien": "014",
+   "porcentaje": 4,
+   "cta_banco": "0004-3342343243",
+   "cod_medio_pago": "001",
+   "monto": 37.76
+  }
+ }
+}

@@ -1,0 +1,49 @@
+{
+ "alias": "B-03",
+ "postman": "Boleta consumidor final (sin DNI)",
+ "comprobante": "B001-000271",
+ "sunat": "aceptado",
+ "request": {
+  "serie": "B001",
+  "fecha_emision": "2026-11-05",
+  "cliente": {
+   "tipo_doc": "0",
+   "num_doc": "99999999",
+   "razon_social": "CONSUMIDOR FINAL"
+  },
+  "items": [
+   {
+    "codigo": "P002",
+    "descripcion": "Producto varios",
+    "unidad": "NIU",
+    "cantidad": 1,
+    "precio_unitario": 12,
+    "tip_afe_igv": "10"
+   }
+  ]
+ },
+ "respuesta": {
+  "totales": {
+   "gravadas": 10.17,
+   "igv": 1.83,
+   "total_impuestos": 1.83,
+   "valor_venta": 10.17,
+   "sub_total": 12,
+   "total": 12
+  },
+  "items": [
+   {
+    "codigo": "P002",
+    "descripcion": "Producto varios",
+    "unidad": "NIU",
+    "cantidad": 1,
+    "precio_unitario": 12,
+    "valor_unitario": 10.1695,
+    "igv": 1.83,
+    "total": 12
+   }
+  ],
+  "percepcion": null,
+  "detraccion": null
+ }
+}

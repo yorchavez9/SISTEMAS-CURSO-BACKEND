@@ -1,0 +1,52 @@
+{
+ "alias": "F-04",
+ "postman": "Crear factura exonerada (servicios médicos)",
+ "comprobante": "F001-000913",
+ "sunat": "aceptado",
+ "request": {
+  "serie": "F001",
+  "fecha_emision": "2026-11-05",
+  "tipo_operacion": "0101",
+  "tipo_moneda": "PEN",
+  "forma_pago": "Contado",
+  "cliente": {
+   "tipo_doc": "6",
+   "num_doc": "20512345678",
+   "razon_social": "CLIENTE SAC",
+   "direccion": "AV. AREQUIPA 1234, LIMA"
+  },
+  "items": [
+   {
+    "codigo": "SERV001",
+    "descripcion": "Consulta médica especializada",
+    "unidad": "ZZ",
+    "cantidad": 1,
+    "precio_unitario": 200,
+    "tip_afe_igv": "20"
+   }
+  ]
+ },
+ "respuesta": {
+  "totales": {
+   "exoneradas": 200,
+   "total_impuestos": 0,
+   "valor_venta": 200,
+   "sub_total": 200,
+   "total": 200
+  },
+  "items": [
+   {
+    "codigo": "SERV001",
+    "descripcion": "Consulta médica especializada",
+    "unidad": "ZZ",
+    "cantidad": 1,
+    "precio_unitario": 200,
+    "valor_unitario": 200,
+    "igv": 0,
+    "total": 200
+   }
+  ],
+  "percepcion": null,
+  "detraccion": null
+ }
+}

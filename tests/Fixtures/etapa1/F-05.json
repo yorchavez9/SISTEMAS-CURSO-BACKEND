@@ -1,0 +1,52 @@
+{
+ "alias": "F-05",
+ "postman": "Crear factura exportación (tipo 0200)",
+ "comprobante": "F001-000914",
+ "sunat": "aceptado",
+ "request": {
+  "serie": "F001",
+  "fecha_emision": "2026-11-05",
+  "tipo_operacion": "0200",
+  "tipo_moneda": "USD",
+  "forma_pago": "Contado",
+  "cliente": {
+   "tipo_doc": "0",
+   "num_doc": "0",
+   "razon_social": "FOREIGN CLIENT INC",
+   "direccion": "5TH AVENUE 1000, NEW YORK, USA"
+  },
+  "items": [
+   {
+    "codigo": "EXP001",
+    "descripcion": "Producto exportación",
+    "unidad": "NIU",
+    "cantidad": 12,
+    "precio_unitario": 50,
+    "tip_afe_igv": "40"
+   }
+  ]
+ },
+ "respuesta": {
+  "totales": {
+   "exportacion": 600,
+   "total_impuestos": 0,
+   "valor_venta": 600,
+   "sub_total": 600,
+   "total": 600
+  },
+  "items": [
+   {
+    "codigo": "EXP001",
+    "descripcion": "Producto exportación",
+    "unidad": "NIU",
+    "cantidad": 12,
+    "precio_unitario": 50,
+    "valor_unitario": 50,
+    "igv": 0,
+    "total": 600
+   }
+  ],
+  "percepcion": null,
+  "detraccion": null
+ }
+}
