@@ -15,7 +15,7 @@ class EmpresasYAuthTest extends TestCase
     {
         parent::setUp();
         // El SPA llega por el proxy de Vite: Sanctum trata la petición como "stateful" (cookie de sesión).
-        $this->withHeader('Referer', 'http://localhost:5173/login');
+        $this->withHeader('Referer', 'http://localhost:5174/login');
     }
 
     public function test_login_por_sesion_y_me(): void

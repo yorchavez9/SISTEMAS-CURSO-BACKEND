@@ -22,7 +22,7 @@ class SetupTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->withHeader('Referer', 'http://localhost:5173/configuracion-inicial');
+        $this->withHeader('Referer', 'http://localhost:5174/configuracion-inicial');
     }
 
     public function test_sin_usuarios_requiere_configuracion(): void
