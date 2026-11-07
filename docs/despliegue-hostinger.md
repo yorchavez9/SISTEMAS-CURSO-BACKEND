@@ -142,9 +142,12 @@ Después de guardar:
 ```bash
 cd ~/domains/cursoapi.kodevo.es/backend
 php artisan migrate --force
+php artisan db:seed --force        # OBLIGATORIO: permisos y catálogos SUNAT (unidades de medida, afectaciones del IGV, motivos…)
 php artisan config:cache
 php artisan route:cache
 ```
+
+> Sin `db:seed` los formularios quedan vacíos (no hay unidades de medida ni tipos de afectación) y no se pueden crear productos ni emitir. Es seguro ejecutarlo varias veces: no duplica ni borra nada.
 
 > Cada vez que cambies el `.env` ejecuta otra vez `php artisan config:cache` (o `config:clear`). Laravel lee la configuración en caché, no el archivo.
 
@@ -245,7 +248,15 @@ Si las cuatro comprobaciones salen bien, el sistema está listo.
 3. **Configuración → Credenciales API:** ingresa `api_key` y `api_secret` del entorno de **pruebas (beta)** y pulsa **Probar conexión**. Se guardan cifradas.
 4. **Configuración → Establecimientos y series:** sincroniza con la API. Si otro sistema emite con la misma cuenta, crea **series propias** (p. ej. F002/B002) y márcalas como predeterminadas.
 5. Emite una boleta de prueba de S/ 1.00 y confirma en **Comprobantes** que llega a **Aceptado** y que se pueden descargar XML, CDR y PDF (si se queda en "Por enviar", revisa el cron del paso 6).
-6. Para pasar a producción real con SUNAT, sigue [despliegue.md §10](despliegue.md#10-paso-de-pruebas-beta-a-producción).
+6. **Opcional — datos de demostración** (categorías, 28 productos, presentaciones, clientes y stock inicial), útil para cursos o pruebas. Requiere haber registrado la empresa y sincronizado los establecimientos:
+   ```bash
+   cd ~/domains/cursoapi.kodevo.es/backend
+   php artisan db:seed --class=DemoSeeder --force
+   # con varias empresas, indica cuál:
+   DEMO_EMPRESA_RUC=20123456789 php artisan db:seed --class=DemoSeeder --force
+   ```
+   No emite comprobantes ni llama a la API de facturación, y no duplica datos si se ejecuta otra vez. **No lo uses en una empresa real.**
+7. Para pasar a producción real con SUNAT, sigue [despliegue.md §10](despliegue.md#10-paso-de-pruebas-beta-a-producción).
 
 ---
 
@@ -260,6 +271,7 @@ mysqldump -u <usuario> -p <base> | gzip > ~/respaldo-$(date +%F-%H%M).sql.gz   #
 git pull
 composer install --no-dev --optimize-autoloader
 php artisan migrate --force
+php artisan db:seed --force        # actualiza permisos y catálogos SUNAT
 php artisan config:cache && php artisan route:cache
 php artisan queue:restart          # los trabajos en curso recargan el código nuevo
 php artisan up
@@ -288,5 +300,8 @@ php artisan up
 | "No se pueden descifrar las credenciales" | Cambió `APP_KEY` | Restaura la `APP_KEY` anterior o vuelve a ingresar las credenciales de cada empresa |
 | `composer install` falla por extensiones | Falta alguna extensión de PHP | Actívala en *Configuración de PHP* (paso 1) |
 | Cambié el `.env` y no se nota | Configuración en caché | `php artisan config:cache` |
+| Sin unidades de medida ni tipos de IGV en los formularios; no se pueden crear productos | No se ejecutó el seeder base | `php artisan db:seed --force` |
+| `DemoSeeder` dice "No hay empresas registradas" | Aún no se registró la empresa | Regístrala en el sistema y vuelve a ejecutarlo |
+| `DemoSeeder` crea productos pero no stock ("Sin almacenes") | Faltan establecimientos | Sincroniza *Establecimientos y series* y vuelve a ejecutarlo (solo agrega lo que falta) |
 
 Registros útiles: `storage/logs/laravel.log` (backend), *Registros de tiempo de ejecución* del sitio del frontend en hPanel, y la pestaña **Red** (Network) de las herramientas del navegador para ver qué llamada falla y con qué código.

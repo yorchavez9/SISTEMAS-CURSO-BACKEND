@@ -75,8 +75,11 @@ Las credenciales de la API **no** van en `.env`.
 ```bash
 cd backend
 php artisan migrate --force
+php artisan db:seed --force     # permisos y catálogos SUNAT (obligatorio; idempotente)
 php artisan config:cache && php artisan route:cache && php artisan event:cache
 ```
+
+Datos de demostración opcionales: `php artisan db:seed --class=DemoSeeder --force` (ver [despliegue-hostinger.md §9](despliegue-hostinger.md#9-primer-uso)).
 
 Antes de cada migración en producción: **respaldo** (ver §8). No ejecutes nunca `migrate:fresh` ni `db:wipe` sobre la base de producción.
 
@@ -168,6 +171,7 @@ php artisan down
 git pull                              # o copiar la nueva versión
 composer install --no-dev --optimize-autoloader
 php artisan migrate --force
+php artisan db:seed --force
 php artisan config:cache && php artisan route:cache && php artisan event:cache
 php artisan queue:restart             # los procesos de la cola recargan el código
 cd ../frontend && npm ci && npm run build

@@ -45,8 +45,12 @@ Revisa en `.env`:
 
 ```bash
 php artisan migrate
+php artisan db:seed                     # permisos y catálogos SUNAT (obligatorio)
 php artisan serve --host=127.0.0.1 --port=8000
 ```
+
+Datos de demostración (opcional, después de registrar la empresa y sincronizar establecimientos):
+`php artisan db:seed --class=DemoSeeder`.
 
 ## 3. Procesos en segundo plano
 
