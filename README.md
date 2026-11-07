@@ -31,10 +31,11 @@ Sistema de ventas multiempresa con emisión de comprobantes electrónicos (factu
 | Documento | Contenido |
 |---|---|
 | [docs/instalacion.md](docs/instalacion.md) | Puesta en marcha en desarrollo (Windows/Laragon o Linux/macOS) |
-| [docs/despliegue.md](docs/despliegue.md) | Producción: servidor web, cola, programador, Redis, respaldos, seguridad |
+| [docs/despliegue-hostinger.md](docs/despliegue-hostinger.md) | **Paso a paso en Hostinger** (hosting compartido): backend y frontend en subdominios, `.env`, cron, verificación y solución de problemas |
+| [docs/despliegue.md](docs/despliegue.md) | Producción en VPS: Nginx, Supervisor, Redis, respaldos, paso de beta a producción, seguridad |
 | [docs/arquitectura.md](docs/arquitectura.md) | Organización del código, multiempresa, flujo de emisión y decisiones técnicas |
 | [docs/operacion.md](docs/operacion.md) | Manual de operación: estados de los comprobantes, bajas, resúmenes y solución de problemas |
-| [docs/etapa1-resultados-api.md](docs/etapa1-resultados-api.md) | Resultados de la captura real de la API y hallazgos (H-1 … H-13) |
+| [docs/etapa1-resultados-api.md](docs/etapa1-resultados-api.md) | Resultados de la captura real de la API y hallazgos (H-1 … H-15) |
 
 ## Inicio rápido (desarrollo)
 

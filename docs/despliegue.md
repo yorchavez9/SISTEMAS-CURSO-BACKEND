@@ -1,6 +1,15 @@
 # Despliegue en producción
 
-Guía para un servidor Linux (Ubuntu 24.04 o similar). Los comandos son orientativos: adáptalos a tu proveedor.
+Guía para un servidor Linux propio (VPS con Ubuntu 24.04 o similar). Los comandos son orientativos: adáptalos a tu proveedor.
+
+> **¿Hosting compartido (Hostinger u otro con hPanel/cPanel)?** Sigue la guía paso a paso [despliegue-hostinger.md](despliegue-hostinger.md): backend y frontend en dos subdominios, cola con cron y solución de problemas.
+
+Hay dos formas de publicar el sistema:
+
+| Modo | Cuándo | Qué configurar |
+|---|---|---|
+| **A. Mismo dominio** (esta guía) | VPS con Nginx | El SPA y la API comparten origen; no hace falta CORS ni `VITE_API_URL` |
+| **B. Dos subdominios** (`app.midominio.pe` y `api.midominio.pe`) | Hosting compartido o servicios separados | `VITE_API_URL` en el frontend; `FRONTEND_URL`, `SANCTUM_STATEFUL_DOMAINS` y `SESSION_DOMAIN=.midominio.pe` en el backend. Detalle en [despliegue-hostinger.md](despliegue-hostinger.md) |
 
 ## Arquitectura recomendada
 
@@ -17,7 +26,7 @@ Guía para un servidor Linux (Ubuntu 24.04 o similar). Los comandos son orientat
    Supervisor: php artisan queue:work      cron: php artisan schedule:run
 ```
 
-El SPA y la API se sirven **desde el mismo dominio**: la sesión de Sanctum viaja en una cookie `httpOnly` y no hace falta CORS. Si separas dominios, tendrás que configurar CORS, `SESSION_DOMAIN` y cookies `SameSite=None`; no está probado.
+El SPA y la API se sirven **desde el mismo dominio**: la sesión de Sanctum viaja en una cookie `httpOnly` y no hace falta CORS. Para dos **subdominios** del mismo dominio (modo B) la configuración está probada en Hostinger: ver [despliegue-hostinger.md](despliegue-hostinger.md). Dominios completamente distintos (sin dominio padre común) no están soportados.
 
 ## 1. Paquetes
 
@@ -37,6 +46,8 @@ composer install --no-dev --optimize-autoloader
 cp .env.example .env && php artisan key:generate   # solo la PRIMERA vez
 # frontend (se compila y se sirven solo los archivos estáticos)
 cd ../frontend
+# Modo A (mismo dominio): VITE_API_URL debe quedar VACÍA. El repositorio trae .env.production
+# con la URL de la instalación de demostración: edítalo o vacíalo antes de compilar.
 npm ci && npm run build      # genera frontend/dist
 ```
 
