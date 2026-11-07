@@ -9,7 +9,7 @@ backend/                Laravel 12
     Auditoria/          Auditor (registro de acciones sensibles)
     Permisos/           Catálogo de permisos y plantillas de roles
   app/Integrations/SunatApi/   Cliente HTTP de la API, limitador de solicitudes, excepciones
-  app/Modules/<Módulo>/        Http (controladores, requests, resources), Services, Jobs…
+  app/Modules/<Módulo>/        Http (controladores, requests, resources), Services…
     Auth, Usuarios, Empresas, Clientes, Productos, Tributos, Ventas,
     Facturacion, Caja, Inventario, Reportes
   app/Models/           Modelos Eloquent
@@ -71,11 +71,15 @@ POST /ventas ──► transacción MySQL
                   ├─ crea venta, detalle, cuotas y comprobante (estado por_enviar, payload listo)
                   ├─ descuenta stock (kardex)
                   └─ registra pagos en la caja abierta
-               commit ──► EmitirComprobanteJob (cola)
-                              ├─ POST /facturas | /boletas
+               commit ──► ProcesoSunat::emitir (misma solicitud, sin cola de trabajos)
+                              ├─ POST /facturas | /boletas  (la API envía a SUNAT por su cuenta)
                               ├─ 422 "correlativo ya existe" → recupera el documento o renumera (máx. 3)
-                              └─ ConsultarEstadoComprobanteJob (esperas crecientes: 5 s … 30 min)
-                                     └─ aceptado → DescargarArchivosComprobanteJob (XML, CDR, PDF)
+                              └─ si la API no responde: queda "por_enviar" con ultimo_error (la venta no se pierde)
+
+GET /comprobantes/{id} (la pantalla consulta cada 3 s mientras está pendiente)
+                  └─ ProcesoSunat::actualizar → reenvía si nunca llegó / GET estado en la API
+GET /comprobantes/{id}/archivos/{xml|cdr|pdf} → si no está guardado, se trae de la API en el momento
+cron schedule:run → sunat:sincronizar (cada minuto): pendientes que nadie abre + respaldo local de XML/CDR/PDF
 ```
 
 - **Idempotencia:** cada venta lleva una `idempotency_key`. Un doble clic o un reintento de red devuelve la misma venta.
@@ -117,7 +121,7 @@ Los efectos comerciales de una baja (venta anulada, reingreso de stock, saldo a 
 
 | Decisión | Motivo |
 |---|---|
-| Envíos solo por cola, después del commit | La venta nunca depende de la disponibilidad de SUNAT. Un fallo de red se reintenta sin duplicar |
+| Sin cola de trabajos: envío en la misma solicitud, después del commit; estado leído al consultar | La API de facturación ya envía a SUNAT de forma asíncrona, así que no hace falta `queue:work` (imposible en hosting compartido). La venta nunca depende de la API: si falla, queda pendiente y se reintenta sin duplicar |
 | Credenciales en la base, cifradas | Pedido explícito: se administran desde el sistema y por empresa |
 | Estructuras JSON tomadas de capturas reales | La colección de Postman no trae respuestas guardadas. No se inventan formatos |
 | Resumen de envío solo para días anteriores | La API admite un único RC de envío por fecha (H-5) |

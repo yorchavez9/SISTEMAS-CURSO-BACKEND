@@ -13,7 +13,7 @@ use App\Models\User;
 use App\Models\Venta;
 use App\Modules\Caja\Services\CajaService;
 use App\Modules\Caja\Services\PagoService;
-use App\Modules\Facturacion\Jobs\EmitirComprobanteJob;
+use App\Modules\Facturacion\Services\ProcesoSunat;
 use App\Modules\Inventario\Services\InventarioService;
 use App\Modules\Facturacion\Payloads\ComprobantePayloadBuilder;
 use App\Modules\Tributos\Calculo\CalculadoraComprobante;
@@ -165,8 +165,8 @@ class VentaService
 
             $cotizacion?->update(['estado' => 'convertida', 'venta_id' => $venta->id]);
 
-            // Se encola solo si la transacción confirma.
-            EmitirComprobanteJob::dispatch($comprobante->id)->afterCommit();
+            // Se envía a la API en esta misma solicitud, solo si la transacción confirma (sin cola de trabajos).
+            ProcesoSunat::programarComprobante($comprobante->id);
 
             return $venta;
         });

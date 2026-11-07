@@ -15,7 +15,6 @@ use App\Models\Empresa;
 use App\Models\User;
 use App\Models\Venta;
 use App\Modules\Caja\Services\PagoService;
-use App\Modules\Facturacion\Jobs\EnviarComunicacionJob;
 use App\Modules\Inventario\Services\InventarioService;
 use App\Modules\Tributos\Calculo\Dec;
 use Illuminate\Support\Carbon;
@@ -105,7 +104,7 @@ class BajaService
                 ComunicacionItem::create(['comunicacion_id' => $com->id, 'comprobante_id' => $c->id, 'motivo' => $motivo]);
                 $c->estados()->create(['estado_anterior' => $c->estado, 'estado_nuevo' => $c->estado, 'detalle' => "Baja solicitada ({$tipo}): $motivo"]);
             }
-            EnviarComunicacionJob::dispatch($com->id)->afterCommit();
+            ProcesoSunat::programarComunicacion($com->id);
 
             return $com;
         });

@@ -13,8 +13,6 @@ use App\Models\Comunicacion;
 use App\Models\ComunicacionItem;
 use App\Models\Empresa;
 use App\Models\User;
-use App\Modules\Facturacion\Jobs\DescargarArchivosComprobanteJob;
-use App\Modules\Facturacion\Jobs\EnviarComunicacionJob;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -85,7 +83,7 @@ class ResumenService
             }
             $base = Comprobante::deEmpresa($empresa->id)->where('envio_por_resumen', true)->whereDate('fecha_emision', $fecha);
             if ((clone $base)->where('estado', 'por_enviar')->exists()) {
-                throw ValidationException::withMessages(['fecha' => 'Hay boletas de esa fecha que aún no se registran en la API. Espera a que la cola las procese (o reinténtalas) antes de enviar el resumen.']);
+                throw ValidationException::withMessages(['fecha' => 'Hay boletas de esa fecha que aún no se registran en la API. Ábrelas o usa Reintentar en Comprobantes para registrarlas antes de enviar el resumen.']);
             }
             $boletas = (clone $base)->where('estado', 'pendiente_resumen')->whereNotNull('api_id')->lockForUpdate()->get();
             if ($boletas->isEmpty()) {
@@ -100,7 +98,7 @@ class ResumenService
             foreach ($boletas as $b) {
                 ComunicacionItem::create(['comunicacion_id' => $com->id, 'comprobante_id' => $b->id, 'motivo' => 'Envío por resumen diario']);
             }
-            EnviarComunicacionJob::dispatch($com->id)->afterCommit();
+            ProcesoSunat::programarComunicacion($com->id);
 
             return $com;
         });
@@ -211,7 +209,7 @@ class ResumenService
                     $b->cambiarEstado('aceptado', "Aceptada en el resumen diario {$c->identifier}: {$c->sunat_codigo} {$c->sunat_descripcion}", [
                         'sunat_codigo' => $c->sunat_codigo, 'sunat_descripcion' => $c->sunat_descripcion, 'aceptado_at' => now(), 'enviado_at' => $b->enviado_at ?? now(),
                     ]);
-                    DescargarArchivosComprobanteJob::dispatch($b->id)->afterCommit();
+                    // XML/CDR/PDF: se traen al descargarlos o con sunat:sincronizar.
                 } elseif ($c->estado === 'rechazado' || $estadoDoc === 'rechazado') {
                     // La boleta sigue pendiente en la API: puede incluirse en un nuevo resumen tras corregir la causa.
                     if ($b->estado !== 'pendiente_resumen') {

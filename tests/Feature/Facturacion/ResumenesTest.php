@@ -11,11 +11,6 @@ use App\Models\Establecimiento;
 use App\Models\Producto;
 use App\Models\Serie;
 use App\Models\User;
-use App\Modules\Facturacion\Jobs\ConsultarComunicacionJob;
-use App\Modules\Facturacion\Jobs\ConsultarEstadoComprobanteJob;
-use App\Modules\Facturacion\Jobs\DescargarArchivosComprobanteJob;
-use App\Modules\Facturacion\Jobs\EmitirComprobanteJob;
-use App\Modules\Facturacion\Jobs\EnviarComunicacionJob;
 use App\Modules\Facturacion\Services\BajaService;
 use App\Modules\Facturacion\Services\EmisionService;
 use App\Modules\Facturacion\Services\ResumenService;
@@ -79,7 +74,7 @@ class ResumenesTest extends TestCase
         $b = $this->vender();
         Http::fake(["{$this->base}/boletas" => fn (Request $r) => Http::response($this->respuestaRegistro($r['correlativo'] + 236, $r['correlativo']), 201)]);
         $this->assertSame($apiId, $b->correlativo + 236); // B001-272 → id 508 (como en B-06)
-        (new EmitirComprobanteJob($b->id))->handle(app(EmisionService::class));
+        app(\App\Modules\Facturacion\Services\ProcesoSunat::class)->emitir(\App\Models\Comprobante::withoutGlobalScopes()->find($b->id));
 
         return $b->fresh();
     }
@@ -91,7 +86,6 @@ class ResumenesTest extends TestCase
         $this->assertTrue($b->payload['solo_registro']);
         $this->assertArrayNotHasKey('enviar_automatico', $b->payload);
         $this->assertSame(['pendiente_resumen', 508], [$b->estado, (int) $b->api_id]);
-        Queue::assertNotPushed(ConsultarEstadoComprobanteJob::class);
         Http::assertSent(fn (Request $r) => $r['solo_registro'] === true);
 
         // Las facturas no cambian: siguen enviándose una por una.
@@ -151,7 +145,6 @@ class ResumenesTest extends TestCase
             ->assertJsonPath('data.accion', 'envio')->assertJsonPath('data.tipo_label', 'Resumen diario de envío');
         $com = Comunicacion::withoutGlobalScopes()->sole();
         $this->assertEquals(['fecha_resumen' => $ayer, 'enviar_automatico' => false], $com->payload); // ejemplo RC-03
-        Queue::assertPushed(EnviarComunicacionJob::class);
 
         // No se crea otro RC de la fecha mientras el primero está en curso (H-5)
         $this->actingAs($this->admin)->postJson('/api/v1/resumenes', ['fecha' => $ayer])->assertStatus(422);
@@ -167,19 +160,17 @@ class ResumenesTest extends TestCase
                 'ticket' => '1793930965505', 'estado_sunat' => 'aceptado', 'codigo_sunat' => '0', 'descripcion_sunat' => 'El Resumen diario RC-20261105-002, ha sido aceptado',
                 'tipo' => 'envio', 'documentos' => [$doc(508, "B001-{$b->correlativo}", 'aceptado'), $doc(999, 'B001-900', 'aceptado')]]]),
         ]);
-        (new EnviarComunicacionJob($com->id))->handle(app(BajaService::class), app(ResumenService::class));
+        app(\App\Modules\Facturacion\Services\ProcesoSunat::class)->enviarComunicacion(\App\Models\Comunicacion::withoutGlobalScopes()->find($com->id));
         $com->refresh();
         $this->assertSame(['enviado', 56, 'RC-20261105-002', 1], [$com->estado, (int) $com->api_id, $com->identifier, (int) $com->documentos_externos]);
         $this->assertSame('enviado', $b->fresh()->estado);
         Http::assertSent(fn (Request $r) => $r->url() === "{$this->base}/resumenes/56/enviar" && $r->method() === 'POST');
-        Queue::assertPushed(ConsultarComunicacionJob::class);
 
-        (new ConsultarComunicacionJob($com->id, 1))->handle(app(BajaService::class), app(ResumenService::class));
+        app(\App\Modules\Facturacion\Services\ProcesoSunat::class)->actualizarComunicacion(\App\Models\Comunicacion::withoutGlobalScopes()->find($com->id), forzar: true);
         $this->assertSame('aceptado', $com->fresh()->estado);
         $b->refresh();
         $this->assertSame(['aceptado', '0'], [$b->estado, $b->sunat_codigo]);
         $this->assertNotNull($b->aceptado_at);
-        Queue::assertPushed(DescargarArchivosComprobanteJob::class, fn ($j) => $j->comprobanteId === $b->id);
         $this->assertSame(1, $com->items()->count()); // solo la boleta propia
 
         // Una boleta aceptada por resumen ya admite baja (RC de anulación).

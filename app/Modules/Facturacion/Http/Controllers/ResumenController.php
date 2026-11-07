@@ -25,6 +25,9 @@ class ResumenController extends Controller
         $d = $request->validate(['fecha' => ['required', 'date_format:Y-m-d']]);
         $c = $this->svc->solicitar($this->empresa->get(), $request->user(), $d['fecha'], permitirHoy: true);
 
-        return response()->json(['data' => BajaController::dto($c), 'message' => "Resumen diario del {$d['fecha']} en cola de envío a SUNAT."], 201);
+        $c->refresh();
+
+        return response()->json(['data' => BajaController::dto($c), 'message' => "Resumen diario del {$d['fecha']} "
+            .($c->ultimo_error ? 'registrado; aún no se pudo enviar (se reintentará).' : 'enviado a SUNAT.')], 201);
     }
 }

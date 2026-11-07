@@ -4,9 +4,9 @@
 
 | Estado | Qué significa | Qué hacer |
 |---|---|---|
-| **Por enviar** | La venta está registrada y el comprobante espera turno en la cola | Nada. Si pasan minutos, revisa que el procesador de la cola esté corriendo |
+| **Por enviar** | La venta está registrada pero la API de facturación no respondió al enviarla | Ábrelo o pulsa **Reintentar**: se reenvía sin duplicar. El sistema también lo reintenta cada minuto (cron) |
 | **Pendiente de resumen** | Boleta registrada en la API, a la espera del resumen diario (modo resumen) | Se envía desde el día siguiente, de forma automática o desde **Resumen diario** |
-| **En SUNAT** | Enviado; se está consultando la respuesta | Nada. El sistema consulta con esperas crecientes hasta por una hora |
+| **En SUNAT** | Registrado en la API, que lo está enviando a SUNAT | Nada. Mientras el comprobante está abierto se consulta cada 3 segundos; si no, cada minuto (cron) |
 | **Aceptado** | SUNAT lo aceptó; XML, CDR y PDF disponibles | — |
 | **Observado** | Aceptado con observaciones | Revisa las notas en el detalle y corrige los datos maestros para las próximas ventas |
 | **Rechazado** | SUNAT lo rechazó; no tiene validez | Emite un nuevo comprobante con los datos corregidos |
@@ -87,7 +87,7 @@ Menú **Comercial → Guías de remisión** (guía de remisión remitente, tipo 
 - **Traslado entre establecimientos propios (motivo 04):** el destinatario es la propia empresa y se elige el establecimiento de destino.
 - **Partida:** por defecto, la dirección del establecimiento de la serie.
 - **Ubigeo:** se ingresa el código de 6 dígitos (por ejemplo, 150101 para Lima).
-- La guía se envía por la cola, igual que los comprobantes. Al aceptarse se guardan su XML, CDR y PDF. Antes de la aceptación solo está disponible una vista previa del PDF.
+- La guía se envía a la API al registrarla, igual que los comprobantes. Al aceptarse se guardan su XML, CDR y PDF. Antes de la aceptación solo está disponible una vista previa del PDF.
 
 ## Caja
 
@@ -117,8 +117,8 @@ Anular un pago exige tener la caja abierta y queda en la auditoría.
 
 | Síntoma | Causa probable | Solución |
 |---|---|---|
-| Comprobantes quedan en **Por enviar** | El procesador de la cola no está corriendo | Inicia `php artisan queue:work` (o revisa Supervisor en producción) |
-| Alerta "más de 15 minutos sin respuesta de SUNAT" | Cola detenida, o SUNAT/beta lento | Revisa la cola; luego usa **Reintentar** en el comprobante, que consulta el estado sin reenviar |
+| Comprobantes quedan en **Por enviar** | La API de facturación no respondió (caída, límite de solicitudes, credenciales) | Mira el aviso en el detalle y pulsa **Reintentar** |
+| Alerta "más de 15 minutos sin respuesta de SUNAT" | Nadie abrió el comprobante y el cron `schedule:run` no corre, o SUNAT/beta lento | Abre el comprobante (consulta en el acto) o usa **Reintentar**; revisa el cron |
 | Error "La API rechazó el envío (HTTP 422)…" | Dato inválido (p. ej. factura a cliente sin RUC) | Corrige el dato maestro y emite un nuevo comprobante |
 | Historial con "Renumerado de F001-N a F001-M" | Otro sistema usó ese número con la misma cuenta | No requiere acción. Para evitarlo, usa series propias y márcalas como predeterminadas |
 | "Credenciales inválidas" o HTTP 401 | Credenciales revocadas, o `APP_KEY` cambiada | Vuelve a ingresar las credenciales en **Credenciales API** |

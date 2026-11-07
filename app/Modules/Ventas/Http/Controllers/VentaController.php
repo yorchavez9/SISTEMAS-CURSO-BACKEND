@@ -49,11 +49,11 @@ class VentaController extends Controller
         ], [], ['serie_id' => 'serie', 'cliente_id' => 'cliente', 'items' => 'ítems']);
 
         $venta = $this->svc->registrar($this->empresa->get(), $request->user(), $data);
-        $c = $venta->comprobante;
+        $c = $venta->comprobante->fresh(); // ya pasó por la API en esta misma solicitud
 
         return response()->json([
             'data' => ['venta_id' => $venta->id, 'comprobante' => ComprobanteController::resumen($c)],
-            'message' => "Venta registrada. Comprobante {$c->numero()} en cola de envío a SUNAT.",
+            'message' => 'Venta registrada. '.ComprobanteController::mensajeEnvio($c),
         ], $venta->wasRecentlyCreated ? 201 : 200);
     }
 

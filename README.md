@@ -11,7 +11,7 @@ Sistema de ventas multiempresa con emisión de comprobantes electrónicos (factu
 | Backend | Laravel 12 (PHP 8.3), Sanctum (sesión SPA por cookie), spatie/laravel-permission (roles por empresa) |
 | Frontend | React 19 + TypeScript + Vite, shadcn/ui, TanStack Query, react-hook-form + zod |
 | Base de datos | MySQL 8.4 |
-| Procesos | Cola de trabajos (envíos a SUNAT) y programador de tareas (resúmenes diarios) |
+| Procesos | Sin cola de trabajos: la API de facturación envía a SUNAT; el programador (`schedule:run`) sincroniza estados y envía los resúmenes diarios |
 
 ## Módulos
 
@@ -32,7 +32,7 @@ Sistema de ventas multiempresa con emisión de comprobantes electrónicos (factu
 |---|---|
 | [docs/instalacion.md](docs/instalacion.md) | Puesta en marcha en desarrollo (Windows/Laragon o Linux/macOS) |
 | [docs/despliegue-hostinger.md](docs/despliegue-hostinger.md) | **Paso a paso en Hostinger** (hosting compartido): backend y frontend en subdominios, `.env`, cron, verificación y solución de problemas |
-| [docs/despliegue.md](docs/despliegue.md) | Producción en VPS: Nginx, Supervisor, Redis, respaldos, paso de beta a producción, seguridad |
+| [docs/despliegue.md](docs/despliegue.md) | Producción en VPS: Nginx, cron, respaldos, paso de beta a producción, seguridad |
 | [docs/arquitectura.md](docs/arquitectura.md) | Organización del código, multiempresa, flujo de emisión y decisiones técnicas |
 | [docs/operacion.md](docs/operacion.md) | Manual de operación: estados de los comprobantes, bajas, resúmenes y solución de problemas |
 | [docs/etapa1-resultados-api.md](docs/etapa1-resultados-api.md) | Resultados de la captura real de la API y hallazgos (H-1 … H-15) |
@@ -50,8 +50,7 @@ php artisan migrate
 php artisan db:seed                                # permisos y catálogos SUNAT (obligatorio)
 
 php artisan serve --host=127.0.0.1 --port=8000   # API
-php artisan queue:work                             # otra terminal: envíos a SUNAT (obligatorio)
-php artisan schedule:work                          # otra terminal: resumen diario de boletas
+php artisan schedule:work                          # otra terminal (opcional): sincroniza estados y resumen diario
 ```
 
 Luego levanta el [frontend](https://github.com/yorchavez9/SISTEMA-CURSO-FRONTEND) (`npm install && npm run dev`, puerto 5174) y abre `http://localhost:5174`.

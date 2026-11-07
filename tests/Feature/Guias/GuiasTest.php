@@ -8,9 +8,6 @@ use App\Models\Establecimiento;
 use App\Models\GuiaRemision;
 use App\Models\Serie;
 use App\Models\User;
-use App\Modules\Guias\Jobs\ConsultarGuiaJob;
-use App\Modules\Guias\Jobs\DescargarArchivosGuiaJob;
-use App\Modules\Guias\Jobs\EmitirGuiaJob;
 use App\Modules\Guias\Services\GuiaService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
@@ -82,7 +79,6 @@ class GuiasTest extends TestCase
             'items' => [['codigo' => 'PROD1', 'descripcion' => 'Laptop HP ProBook 450', 'cantidad' => 10.0, 'unidad' => 'NIU']],
             'enviar_automatico' => true,
         ], $g->payload);
-        Queue::assertPushed(EmitirGuiaJob::class);
         $this->assertSame(15, (int) $this->t001->fresh()->correlativo_actual);
 
         // Idempotencia
@@ -142,17 +138,16 @@ class GuiasTest extends TestCase
                 'siguiente_accion' => 'Corrija el error indicado y use POST /guias-remision/98/enviar para reintentar.'], 409),
             "{$this->base}/guias-remision/98/enviar" => Http::response(['estado' => 'exito', 'mensaje' => 'Guía de remisión enviada a SUNAT.', 'datos' => $this->respuesta(98, 15, ['estado' => 'enviado'])['datos']]),
         ]);
-        (new EmitirGuiaJob($g->id))->handle(app(GuiaService::class));
+        app(\App\Modules\Facturacion\Services\ProcesoSunat::class)->emitirGuia(\App\Models\GuiaRemision::withoutGlobalScopes()->find($g->id));
         $this->assertSame(['enviado', 98], [$g->fresh()->estado, (int) $g->fresh()->api_id]);
-        Queue::assertPushed(ConsultarGuiaJob::class);
 
-        (new ConsultarGuiaJob($g->id, 1))->handle(app(GuiaService::class));
+        app(\App\Modules\Facturacion\Services\ProcesoSunat::class)->actualizarGuia(\App\Models\GuiaRemision::withoutGlobalScopes()->find($g->id), forzar: true);
         $g->refresh();
         $this->assertSame(['error', 'BUILD_ERROR'], [$g->estado, $g->sunat_codigo]);
         $this->assertStringContainsString('credenciales GRE', collect($g->historial)->last()['detalle']);
 
         $this->actingAs($this->admin)->postJson("/api/v1/guias/{$g->id}/reintentar")->assertOk();
-        (new EmitirGuiaJob($g->id))->handle(app(GuiaService::class));
+        app(\App\Modules\Facturacion\Services\ProcesoSunat::class)->emitirGuia(\App\Models\GuiaRemision::withoutGlobalScopes()->find($g->id));
         $this->assertSame('enviado', $g->fresh()->estado);
         Http::assertSent(fn (Request $r) => $r->url() === "{$this->base}/guias-remision/98/enviar" && $r->method() === 'POST');
         Http::assertSentCount(3); // POST inicial, /estado y /enviar: nunca un segundo POST /guias-remision
@@ -169,11 +164,10 @@ class GuiasTest extends TestCase
             "{$this->base}/guias-remision/98/estado" => Http::response(['estado' => 'exito', 'mensaje' => 'OK', 'datos' => $this->respuesta(98, 15,
                 ['estado' => 'aceptado', 'codigo' => '0', 'descripcion' => 'ACEPTADA', 'ticket' => 'abc-123'])['datos']]),
         ]);
-        (new ConsultarGuiaJob($g->id, 1))->handle(app(GuiaService::class));
+        app(\App\Modules\Facturacion\Services\ProcesoSunat::class)->actualizarGuia(\App\Models\GuiaRemision::withoutGlobalScopes()->find($g->id), forzar: true);
         $g->refresh();
         $this->assertSame(['aceptado', '0', 'abc-123'], [$g->estado, $g->sunat_codigo, $g->ticket]);
         $this->assertNotNull($g->aceptado_at);
-        Queue::assertPushed(DescargarArchivosGuiaJob::class);
     }
 
     public function test_estado_con_formato_desconocido_lee_la_guia_completa(): void

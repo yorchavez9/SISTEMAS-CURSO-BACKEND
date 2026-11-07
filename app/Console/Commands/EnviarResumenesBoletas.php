@@ -40,7 +40,7 @@ class EnviarResumenesBoletas extends Command
                 }
                 try {
                     $c = $svc->solicitar($empresa, $user, $fecha);
-                    $this->info("{$empresa->ruc} $fecha: resumen #{$c->id} en cola ({$c->items()->count()} boletas).");
+                    $this->info("{$empresa->ruc} $fecha: resumen #{$c->id} enviado ({$c->items()->count()} boletas).{$c->fresh()->ultimo_error}");
                 } catch (ValidationException $e) {
                     $this->line("{$empresa->ruc} $fecha: ".collect($e->errors())->flatten()->first());
                 }

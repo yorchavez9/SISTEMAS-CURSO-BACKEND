@@ -61,7 +61,7 @@ class DashboardController extends Controller
         $alertas = [];
         $atascados = Comprobante::query()->whereIn('estado', ['por_enviar', 'enviado'])->where('updated_at', '<', now()->subMinutes(15))->count();
         if ($atascados) {
-            $alertas[] = ['nivel' => 'warning', 'texto' => "$atascados comprobante(s) llevan más de 15 minutos sin respuesta de SUNAT. ¿Está corriendo el procesador de cola?", 'link' => '/comprobantes'];
+            $alertas[] = ['nivel' => 'warning', 'texto' => "$atascados comprobante(s) llevan más de 15 minutos sin respuesta de SUNAT. Ábrelos para volver a consultar o revisa el cron de `schedule:run` (sunat:sincronizar).", 'link' => '/comprobantes'];
         }
         if ($errores = Comprobante::query()->whereIn('estado', ['error', 'rechazado'])->whereDate('fecha_emision', '>=', $hoy->copy()->subDays(7)->toDateString())->count()) {
             $alertas[] = ['nivel' => 'critical', 'texto' => "$errores comprobante(s) con error o rechazados en los últimos 7 días.", 'link' => '/comprobantes'];

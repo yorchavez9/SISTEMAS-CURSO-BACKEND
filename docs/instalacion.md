@@ -38,7 +38,7 @@ Revisa en `.env`:
 | `FRONTEND_URL` | `http://localhost:5174` |
 | `SANCTUM_STATEFUL_DOMAINS` | `localhost:5174,127.0.0.1:5174` |
 | `SUNAT_API_BASE_URL` | `https://sunat.kodevo.es/api/v1` |
-| `QUEUE_CONNECTION`, `CACHE_STORE` | `database` (en producción se recomienda `redis`) |
+| `CACHE_STORE` | `database` (en producción se puede usar `redis`) |
 
 > **No** agregues la api_key ni la api_secret al `.env`. Se registran desde el sistema y se guardan cifradas con `APP_KEY`.
 > Si cambias `APP_KEY`, las credenciales guardadas dejan de poder descifrarse y hay que volver a ingresarlas.
@@ -52,16 +52,15 @@ php artisan serve --host=127.0.0.1 --port=8000
 Datos de demostración (opcional, después de registrar la empresa y sincronizar establecimientos):
 `php artisan db:seed --class=DemoSeeder`.
 
-## 3. Procesos en segundo plano
+## 3. Programador de tareas (opcional en desarrollo)
 
-Abre una terminal para cada uno y déjalos corriendo mientras trabajas:
+El sistema **no usa cola de trabajos**: la API de facturación envía a SUNAT por su cuenta, el backend registra cada comprobante en la API en la misma solicitud y lee su estado al abrirlo o listarlo.
 
 ```bash
-php artisan queue:work      # envía comprobantes a la API y consulta su estado en SUNAT
-php artisan schedule:work   # cada hora envía el resumen diario de boletas (modo "resumen")
+php artisan schedule:work   # cada minuto sunat:sincronizar; cada hora el resumen diario de boletas
 ```
 
-Sin `queue:work` las ventas se registran, pero sus comprobantes quedan **Por enviar**. Después de cambiar código del backend ejecuta `php artisan queue:restart` y vuelve a iniciar el procesador.
+Sin `schedule:work` todo funciona al usar las pantallas; solo dejan de actualizarse solos los documentos que nadie abre y el resumen diario hay que enviarlo desde **Resumen diario**.
 
 ## 4. Frontend (`frontend/`)
 

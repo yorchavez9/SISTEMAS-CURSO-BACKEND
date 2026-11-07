@@ -46,7 +46,11 @@ return [
         'connect_timeout' => (int) env('SUNAT_API_CONNECT_TIMEOUT', 15),
         // La API permite 30 req/min por cuenta (Etapa 1, H-2). Se deja margen.
         'rate_limit_por_minuto' => (int) env('SUNAT_API_RATE_LIMIT', 25),
-        'rate_limit_espera_max' => (int) env('SUNAT_API_RATE_WAIT_MAX', 75),
+        // Sin cola de trabajos las llamadas ocurren dentro de la solicitud del usuario: se espera poco por un turno
+        // y, si no hay, el documento queda pendiente y se reintenta al consultarlo o con sunat:sincronizar.
+        'rate_limit_espera_max' => (int) env('SUNAT_API_RATE_WAIT_MAX', 5),
+        // Enviar a la API en la misma solicitud al registrar (venta, nota, baja, resumen, guía). Las pruebas lo apagan.
+        'envio_inmediato' => (bool) env('SUNAT_ENVIO_INMEDIATO', true),
     ],
 
 ];

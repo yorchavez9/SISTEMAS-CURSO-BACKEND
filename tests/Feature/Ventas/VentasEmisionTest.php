@@ -10,9 +10,6 @@ use App\Models\Establecimiento;
 use App\Models\Producto;
 use App\Models\Serie;
 use App\Models\User;
-use App\Modules\Facturacion\Jobs\ConsultarEstadoComprobanteJob;
-use App\Modules\Facturacion\Jobs\DescargarArchivosComprobanteJob;
-use App\Modules\Facturacion\Jobs\EmitirComprobanteJob;
 use App\Modules\Facturacion\Services\EmisionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
@@ -79,7 +76,6 @@ class VentasEmisionTest extends TestCase
         $this->assertEquals(['tipo_doc' => '6', 'num_doc' => '20131312955', 'razon_social' => 'SUNAT', 'direccion' => 'AV. GARCILASO 1472'], $c->payload['cliente']);
         $this->assertEquals(['codigo' => 'PROD-001', 'cod_producto_sunat' => '43211508', 'descripcion' => 'Laptop Lenovo ThinkPad E14', 'unidad' => 'NIU', 'cantidad' => 1, 'precio_unitario' => 2360, 'tip_afe_igv' => '10'], $c->payload['items'][0]);
         $this->assertSame(['cliente', 'correlativo', 'enviar_automatico', 'fecha_emision', 'forma_pago', 'items', 'serie', 'tipo_moneda', 'tipo_operacion'], collect($c->payload)->keys()->sort()->values()->all());
-        Queue::assertPushed(EmitirComprobanteJob::class, fn ($j) => $j->comprobanteId === $c->id);
         $this->assertSame(963, $this->f001->fresh()->correlativo_actual);
     }
 
@@ -184,22 +180,20 @@ class VentasEmisionTest extends TestCase
             "{$this->base}/facturas/500/pdf*" => Http::response('%PDF-1.4', 200, ['Content-Type' => 'application/pdf']),
         ]);
 
-        (new EmitirComprobanteJob($c->id))->handle(app(EmisionService::class));
+        app(\App\Modules\Facturacion\Services\ProcesoSunat::class)->emitir(\App\Models\Comprobante::withoutGlobalScopes()->find($c->id));
         $c->refresh();
         $this->assertSame('enviado', $c->estado);
         $this->assertSame(500, $c->api_id);
         $this->assertFalse($c->diferencia_totales); // la API calculó lo mismo que el motor local
-        Queue::assertPushed(ConsultarEstadoComprobanteJob::class);
         Http::assertSent(fn (Request $r) => $r->method() === 'POST' && $r['correlativo'] === 963 && $r['serie'] === 'F001');
 
-        (new ConsultarEstadoComprobanteJob($c->id, 1))->handle(app(EmisionService::class));
+        app(\App\Modules\Facturacion\Services\ProcesoSunat::class)->actualizar(\App\Models\Comprobante::withoutGlobalScopes()->find($c->id), forzar: true);
         $c->refresh();
         $this->assertSame('aceptado', $c->estado);
         $this->assertSame('0', $c->sunat_codigo);
         $this->assertNotNull($c->aceptado_at);
-        Queue::assertPushed(DescargarArchivosComprobanteJob::class);
 
-        (new DescargarArchivosComprobanteJob($c->id))->handle(app(EmisionService::class));
+        app(\App\Modules\Facturacion\Services\ProcesoSunat::class)->descargarArchivos(\App\Models\Comprobante::withoutGlobalScopes()->find($c->id));
         $this->assertEqualsCanonicalizing(['xml', 'cdr', 'pdf'], $c->archivos()->pluck('tipo')->all());
         Storage::disk('local')->assertExists("comprobantes/{$this->empresa->id}/20161515648-01-F001-963.pdf");
         $this->assertSame(['por_enviar', 'enviado', 'aceptado'], $c->estados()->pluck('estado_nuevo')->all());
@@ -258,11 +252,10 @@ class VentasEmisionTest extends TestCase
         $c = $this->comprobantePorEnviar();
         Http::fake(["{$this->base}/facturas" => Http::response(['estado' => 'error', 'mensaje' => 'Error de validación',
             'errores' => ['cliente.tipo_doc' => ['Las facturas requieren cliente con RUC (tipo_doc=6).']]], 422)]);
-        (new EmitirComprobanteJob($c->id))->handle(app(EmisionService::class));
+        app(\App\Modules\Facturacion\Services\ProcesoSunat::class)->emitir(\App\Models\Comprobante::withoutGlobalScopes()->find($c->id));
         $c->refresh();
         $this->assertSame('error', $c->estado);
         $this->assertStringContainsString('requieren cliente con RUC', $c->ultimo_error);
-        Queue::assertNotPushed(ConsultarEstadoComprobanteJob::class);
     }
 
     public function test_falla_de_red_propaga_para_que_la_cola_reintente(): void
@@ -286,5 +279,70 @@ class VentasEmisionTest extends TestCase
         $intruso->asignarEnEmpresa($otra, 'admin');
         $this->actingAs($intruso)->withHeader('X-Empresa-Id', (string) $otra->id)->getJson("/api/v1/comprobantes/{$c->id}")->assertNotFound();
         $this->actingAs($intruso)->withHeader('X-Empresa-Id', (string) $otra->id)->get("/api/v1/comprobantes/{$c->id}/archivos/pdf")->assertNotFound();
+    }
+
+    // ------------------- Sin cola de trabajos (la API envía a SUNAT por su cuenta) -------------------
+
+    public function test_sin_cola_la_venta_se_envia_a_la_api_en_la_misma_solicitud(): void
+    {
+        config(['services.sunat_api.envio_inmediato' => true]);
+        Http::fake(["{$this->base}/facturas" => Http::response(['estado' => 'exito', 'datos' => $this->docApi('aceptado')], 201)]);
+
+        $this->actingAs($this->vendedor)->postJson('/api/v1/ventas', $this->venta())->assertCreated()
+            ->assertJsonPath('data.comprobante.estado', 'aceptado')
+            ->assertJsonPath('message', 'Venta registrada. F001-963 aceptado por SUNAT.');
+        $this->assertSame(500, (int) Comprobante::withoutGlobalScopes()->sole()->api_id);
+        Http::assertSentCount(1);
+    }
+
+    public function test_sin_cola_si_la_api_no_responde_la_venta_se_registra_y_se_reintenta_al_consultar(): void
+    {
+        config(['services.sunat_api.envio_inmediato' => true]);
+        Http::fake(["{$this->base}/facturas" => Http::sequence()
+            ->pushFailedConnection()
+            ->push(['estado' => 'exito', 'datos' => $this->docApi('enviado')], 201)]);
+
+        $this->actingAs($this->vendedor)->postJson('/api/v1/ventas', $this->venta())->assertCreated()
+            ->assertJsonPath('data.comprobante.estado', 'por_enviar');
+        $c = Comprobante::withoutGlobalScopes()->sole();
+        $this->assertNotNull($c->ultimo_error); // la venta no se pierde: queda pendiente con el motivo
+
+        // Al abrir el comprobante se reenvía (la pantalla consulta cada pocos segundos mientras está pendiente).
+        \Illuminate\Support\Facades\Cache::flush();
+        $this->actingAs($this->vendedor)->getJson("/api/v1/comprobantes/{$c->id}")->assertOk()->assertJsonPath('data.estado', 'enviado');
+        $this->assertSame(500, (int) $c->fresh()->api_id);
+    }
+
+    public function test_sin_cola_el_estado_y_los_archivos_se_obtienen_al_consultar(): void
+    {
+        Storage::fake('local');
+        $c = $this->comprobantePorEnviar();
+        $c->update(['estado' => 'enviado', 'api_id' => 500]);
+        Http::fake([
+            "{$this->base}/facturas/500" => Http::response(['estado' => 'exito', 'datos' => $this->docApi('aceptado')]),
+            "{$this->base}/facturas/500/cdr" => Http::response('PK-zip', 200, ['Content-Type' => 'application/zip']),
+        ]);
+
+        $this->actingAs($this->vendedor)->getJson("/api/v1/comprobantes/{$c->id}")->assertOk()->assertJsonPath('data.estado', 'aceptado');
+        // El CDR no estaba guardado: se trae de la API al descargarlo.
+        $this->actingAs($this->vendedor)->get("/api/v1/comprobantes/{$c->id}/archivos/cdr")->assertOk()->assertHeader('Content-Type', 'application/zip');
+        $this->assertSame(['cdr'], $c->archivos()->pluck('tipo')->all());
+    }
+
+    public function test_comando_sincronizar_consulta_pendientes_y_descarga_archivos(): void
+    {
+        Storage::fake('local');
+        $c = $this->comprobantePorEnviar();
+        $c->update(['estado' => 'enviado', 'api_id' => 500, 'updated_at' => now()->subMinute()]);
+        Http::fake([
+            "{$this->base}/facturas/500" => Http::response(['estado' => 'exito', 'datos' => $this->docApi('aceptado')]),
+            "{$this->base}/facturas/500/xml" => Http::response('<Invoice/>', 200, ['Content-Type' => 'application/xml']),
+            "{$this->base}/facturas/500/cdr" => Http::response('PK-zip', 200, ['Content-Type' => 'application/zip']),
+            "{$this->base}/facturas/500/pdf*" => Http::response('%PDF-1.4', 200, ['Content-Type' => 'application/pdf']),
+        ]);
+
+        $this->artisan('sunat:sincronizar')->assertSuccessful();
+        $this->assertSame('aceptado', $c->fresh()->estado);
+        $this->assertEqualsCanonicalizing(['xml', 'cdr', 'pdf'], $c->archivos()->pluck('tipo')->all());
     }
 }

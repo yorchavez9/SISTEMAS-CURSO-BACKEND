@@ -14,7 +14,7 @@ use App\Models\Establecimiento;
 use App\Models\GuiaRemision;
 use App\Models\Serie;
 use App\Models\User;
-use App\Modules\Guias\Jobs\EmitirGuiaJob;
+use App\Modules\Facturacion\Services\ProcesoSunat;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -146,7 +146,7 @@ class GuiaService
                 'estado' => 'por_enviar', 'payload' => $payload, 'idempotency_key' => $d['idempotency_key'], 'user_id' => $user->id,
                 'historial' => [['fecha' => now()->toIso8601String(), 'estado' => 'por_enviar', 'detalle' => 'Guía registrada']],
             ]);
-            EmitirGuiaJob::dispatch($g->id)->afterCommit();
+            ProcesoSunat::programarGuia($g->id);
 
             return $g;
         });

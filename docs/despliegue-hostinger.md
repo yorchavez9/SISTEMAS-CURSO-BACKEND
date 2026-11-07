@@ -114,7 +114,6 @@ SESSION_SECURE_COOKIE=true
 FRONTEND_URL=https://sistemacurso.kodevo.es
 SANCTUM_STATEFUL_DOMAINS=sistemacurso.kodevo.es
 
-QUEUE_CONNECTION=database
 CACHE_STORE=database
 
 SUNAT_API_BASE_URL=https://sunat.kodevo.es/api/v1
@@ -155,25 +154,27 @@ php artisan route:cache
 
 ---
 
-## 6. Backend: tareas programadas (cron) — obligatorio
+## 6. Backend: tarea programada (cron)
 
-Hostinger no permite procesos permanentes, así que la cola de envíos a SUNAT se procesa con cron. hPanel → *Avanzado → Cron Jobs* → **Personalizado**, frecuencia **cada minuto** (`* * * * *`). Crea **dos** tareas:
+El sistema **no usa cola de trabajos** (`queue:work`): la API de facturación envía los documentos a SUNAT por su cuenta. Al vender, el backend registra el comprobante en la API **en la misma solicitud**, y el estado de SUNAT se lee cada vez que alguien abre o lista el documento.
 
-**a) Cola de trabajos** (envía los comprobantes a SUNAT, consulta su estado, descarga XML/CDR/PDF):
-
-```bash
-cd /home/<u123456789>/domains/cursoapi.kodevo.es/backend && php artisan queue:work --stop-when-empty --max-time=55 --tries=1 >> /dev/null 2>&1
-```
-
-**b) Programador de Laravel** (resumen diario de boletas a las 00:15 de Lima, etc.):
+Solo hace falta **un** cron, **cada minuto** (`* * * * *`). hPanel → *Avanzado → Cron Jobs* → **Personalizado**:
 
 ```bash
 cd /home/<u123456789>/domains/cursoapi.kodevo.es/backend && php artisan schedule:run >> /dev/null 2>&1
 ```
 
+Ejecuta, según lo programado:
+
+| Tarea | Frecuencia | Qué hace |
+|---|---|---|
+| `sunat:sincronizar` | Cada minuto | Reenvía lo que no llegó a la API, consulta el estado de lo que espera respuesta de SUNAT (aunque nadie lo abra) y guarda XML/CDR/PDF de lo aceptado |
+| `sunat:enviar-resumenes` | Cada hora (minuto 15) | Envía el resumen diario de las boletas en modo "resumen" de días anteriores |
+
 - Reemplaza `<u123456789>` por tu usuario (lo ves con `echo $HOME` por SSH).
 - Si `php` en cron no es la 8.3, usa la ruta completa que te muestre `which php` por SSH.
-- **Sin la tarea (a)** las ventas se registran, pero los comprobantes se quedan en "Por enviar" y nunca llegan a SUNAT.
+- **Sin este cron** el sistema funciona igual al usarlo (vender, consultar, descargar), pero lo que nadie abre no se actualiza solo y el resumen diario hay que enviarlo a mano.
+- Para probarlo a mano por SSH: `php artisan sunat:sincronizar`.
 
 ---
 
@@ -273,7 +274,6 @@ composer install --no-dev --optimize-autoloader
 php artisan migrate --force
 php artisan db:seed --force        # actualiza permisos y catálogos SUNAT
 php artisan config:cache && php artisan route:cache
-php artisan queue:restart          # los trabajos en curso recargan el código nuevo
 php artisan up
 ```
 
@@ -294,8 +294,8 @@ php artisan up
 | **"CSRF token mismatch"** con `SESSION_DOMAIN` ya correcto (p. ej. funcionó el registro y falla la siguiente acción) | El navegador conserva cookies viejas de `cursoapi…` con el mismo nombre que las nuevas de `.kodevo.es`; el backend lee la vieja | Pon `SESSION_COOKIE=sistemacurso_session` + `php artisan config:cache`, o borra las cookies: candado de la barra de direcciones → *Cookies y datos de sitios* → eliminar las de `kodevo.es` y `cursoapi.kodevo.es`. Luego vuelve a iniciar sesión |
 | En la consola del navegador: **"blocked by CORS policy"** | `FRONTEND_URL` distinto del origen real (con `/` final, `http` en vez de `https`, `www`…) | Debe ser exactamente `https://sistemacurso.kodevo.es`; luego `config:cache` |
 | Inicia sesión pero todo devuelve **401** | `SANCTUM_STATEFUL_DOMAINS` no contiene el dominio del frontend | Ponlo sin `https://` y sin `/`; luego `config:cache` |
-| Comprobantes en **"Por enviar"** para siempre | El cron de la cola (paso 6a) no corre | Revisa la ruta del cron y ejecútalo a mano por SSH para ver el error |
-| El resumen diario de boletas no se envía solo | Falta el cron del programador (paso 6b) | Créalo; mientras tanto se puede enviar manualmente desde **Resumen diario** |
+| Comprobante en **"Por enviar"** con un aviso de error | La API de facturación no respondió al vender (caída, límite de solicitudes, credenciales) | Abre el comprobante o pulsa **Reintentar**: se vuelve a enviar sin duplicar. El cron (paso 6) también lo reintenta cada minuto |
+| El resumen diario de boletas no se envía solo | Falta el cron del paso 6 | Créalo; mientras tanto se puede enviar manualmente desde **Resumen diario** |
 | Error **500** | Ver el detalle en el log | `tail -n 50 storage/logs/laravel.log` |
 | "No se pueden descifrar las credenciales" | Cambió `APP_KEY` | Restaura la `APP_KEY` anterior o vuelve a ingresar las credenciales de cada empresa |
 | `composer install` falla por extensiones | Falta alguna extensión de PHP | Actívala en *Configuración de PHP* (paso 1) |

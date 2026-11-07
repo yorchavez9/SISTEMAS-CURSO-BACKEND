@@ -21,9 +21,9 @@ Hay dos formas de publicar el sistema:
      /  (archivos del SPA)  │       /api  /sanctum  /up
      frontend/dist          │       PHP-FPM 8.3 → backend/public
                             │
-   MySQL 8.4 ── Redis (cola, caché, límite de solicitudes)
+   MySQL 8.4 ── Redis opcional (caché, límite de solicitudes)
                             │
-   Supervisor: php artisan queue:work      cron: php artisan schedule:run
+   cron: php artisan schedule:run   (sin cola de trabajos: no hace falta Supervisor)
 ```
 
 El SPA y la API se sirven **desde el mismo dominio**: la sesión de Sanctum viaja en una cookie `httpOnly` y no hace falta CORS. Para dos **subdominios** del mismo dominio (modo B) la configuración está probada en Hostinger: ver [despliegue-hostinger.md](despliegue-hostinger.md). Dominios completamente distintos (sin dominio padre común) no están soportados.
@@ -31,7 +31,7 @@ El SPA y la API se sirven **desde el mismo dominio**: la sesión de Sanctum viaj
 ## 1. Paquetes
 
 ```bash
-sudo apt install nginx mysql-server redis-server supervisor \
+sudo apt install nginx mysql-server redis-server \
   php8.3-fpm php8.3-cli php8.3-mysql php8.3-mbstring php8.3-bcmath php8.3-curl php8.3-xml php8.3-zip php8.3-redis php8.3-intl
 # Composer 2 y Node.js 22 según sus guías oficiales
 ```
@@ -60,7 +60,6 @@ npm ci && npm run build      # genera frontend/dist
 | `SANCTUM_STATEFUL_DOMAINS` | `ventas.midominio.pe` |
 | `SESSION_SECURE_COOKIE` | `true` |
 | `DB_*` | Usuario de MySQL con permisos solo sobre la base del sistema |
-| `QUEUE_CONNECTION` | `redis` |
 | `CACHE_STORE` | `redis` (el limitador de 25 solicitudes por minuto por empresa usa bloqueos atómicos de la caché) |
 | `REDIS_HOST`, `REDIS_PASSWORD` | Según tu Redis |
 | `SUNAT_API_BASE_URL` | `https://sunat.kodevo.es/api/v1` |
@@ -121,28 +120,9 @@ server { listen 80; server_name ventas.midominio.pe; return 301 https://$host$re
 
 Permisos: el usuario de PHP-FPM (`www-data`) debe poder escribir en `backend/storage` y `backend/bootstrap/cache`.
 
-## 6. Procesador de la cola (Supervisor)
+## 6. Sin cola de trabajos
 
-`/etc/supervisor/conf.d/sistema-ventas-cola.conf`:
-
-```ini
-[program:sistema-ventas-cola]
-command=php /var/www/sistema-ventas/backend/artisan queue:work redis --sleep=1 --tries=1 --max-time=3600
-user=www-data
-numprocs=2
-process_name=%(program_name)s_%(process_num)02d
-autostart=true
-autorestart=true
-stopwaitsecs=120
-redirect_stderr=true
-stdout_logfile=/var/www/sistema-ventas/backend/storage/logs/cola.log
-```
-
-Cada trabajo define sus propios reintentos y esperas (`--tries=1` no los anula). Dos procesos son suficientes: la API admite 30 solicitudes por minuto por cuenta y el sistema se limita a 25.
-
-```bash
-sudo supervisorctl reread && sudo supervisorctl update
-```
+El sistema **no necesita `queue:work` ni Supervisor**. La API de facturación envía los documentos a SUNAT por su cuenta: el backend los registra en la API en la misma solicitud (después de confirmar la transacción) y lee su estado cuando se abren o listan. Lo que nadie abre lo actualiza `sunat:sincronizar` desde el programador (§7).
 
 ## 7. Programador de tareas (cron)
 
@@ -150,7 +130,7 @@ sudo supervisorctl reread && sudo supervisorctl update
 * * * * * www-data cd /var/www/sistema-ventas/backend && php artisan schedule:run >> /dev/null 2>&1
 ```
 
-Hoy programa `sunat:enviar-resumenes` cada hora (minuto 15, hora de Lima): envía el resumen diario de las boletas pendientes de días anteriores en las empresas que usan el modo "resumen".
+Programa `sunat:sincronizar` cada minuto (reenvía lo que no llegó a la API, consulta estados pendientes y guarda XML/CDR/PDF) y `sunat:enviar-resumenes` cada hora (minuto 15, hora de Lima): el resumen diario de las boletas pendientes de días anteriores.
 
 ## 8. Respaldos
 
@@ -173,7 +153,6 @@ composer install --no-dev --optimize-autoloader
 php artisan migrate --force
 php artisan db:seed --force
 php artisan config:cache && php artisan route:cache && php artisan event:cache
-php artisan queue:restart             # los procesos de la cola recargan el código
 cd ../frontend && npm ci && npm run build
 cd ../backend && php artisan up
 ```
@@ -189,10 +168,9 @@ cd ../backend && php artisan up
 ## 11. Monitoreo
 
 - `GET /up`: chequeo de salud de Laravel.
-- **Panel** del sistema: alertas de comprobantes sin respuesta de SUNAT por más de 15 minutos (suele indicar que la cola está detenida), errores y rechazos de los últimos 7 días, boletas sin resumen y stock bajo.
-- `storage/logs/laravel.log` y `storage/logs/cola.log`.
+- **Panel** del sistema: alertas de comprobantes sin respuesta de SUNAT por más de 15 minutos (suele indicar que el cron `schedule:run` está detenido), errores y rechazos de los últimos 7 días, boletas sin resumen y stock bajo.
+- `storage/logs/laravel.log`.
 - Tabla `api_solicitudes`: cada llamada a la API con su estado HTTP, duración y respuesta (sin credenciales).
-- Trabajos fallidos: `php artisan queue:failed`.
 
 ## Lista de verificación de seguridad
 

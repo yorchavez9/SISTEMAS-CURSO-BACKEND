@@ -13,7 +13,6 @@ use App\Models\Serie;
 use App\Models\Stock;
 use App\Models\User;
 use App\Models\Venta;
-use App\Modules\Facturacion\Jobs\EmitirComprobanteJob;
 use App\Modules\Facturacion\Services\EmisionService;
 use App\Modules\Inventario\Services\InventarioService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -101,7 +100,6 @@ class NotasTest extends TestCase
         $v = Venta::withoutGlobalScopes()->find($ref->venta_id);
         $this->assertSame('anulada', $v->estado);
         $this->assertSame('0.00', (string) $v->saldo);                             // ya no hay nada que cobrar
-        Queue::assertPushed(EmitirComprobanteJob::class, fn ($j) => $j->comprobanteId === $nc->id);
 
         // Una segunda NC de anulación ya no es posible
         $this->nota($ref, ['cod_motivo' => '01', 'des_motivo' => 'Otra anulación'])->assertStatus(422)->assertJsonValidationErrors('cod_motivo');

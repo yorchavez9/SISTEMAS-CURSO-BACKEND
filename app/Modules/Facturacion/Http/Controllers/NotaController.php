@@ -74,9 +74,12 @@ class NotaController extends Controller
         ], [], ['des_motivo' => 'sustento del motivo']);
         $nota = $this->svc->emitir($this->empresa->get(), $request->user(), $d);
 
+        $creada = $nota->wasRecentlyCreated;
+        $nota = $nota->fresh(); // ya pasó por la API en esta misma solicitud
+
         return response()->json([
             'data' => ComprobanteController::resumen($nota),
-            'message' => ($nota->tipo_documento === '07' ? 'Nota de crédito ' : 'Nota de débito ')."{$nota->numero()} registrada y en cola de envío a SUNAT.",
-        ], $nota->wasRecentlyCreated ? 201 : 200);
+            'message' => ($nota->tipo_documento === '07' ? 'Nota de crédito ' : 'Nota de débito ').ComprobanteController::mensajeEnvio($nota),
+        ], $creada ? 201 : 200);
     }
 }

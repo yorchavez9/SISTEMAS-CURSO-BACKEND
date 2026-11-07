@@ -13,8 +13,6 @@ use App\Models\Serie;
 use App\Models\Stock;
 use App\Models\User;
 use App\Models\Venta;
-use App\Modules\Facturacion\Jobs\ConsultarComunicacionJob;
-use App\Modules\Facturacion\Jobs\EnviarComunicacionJob;
 use App\Modules\Facturacion\Services\BajaService;
 use App\Modules\Facturacion\Services\ResumenService;
 use App\Modules\Inventario\Services\InventarioService;
@@ -84,7 +82,6 @@ class BajasTest extends TestCase
         // Estructura del ejemplo RA-01 de Postman + fecha_comunicacion SIEMPRE explícita (corrige el defecto UTC H-1).
         $this->assertEquals(['fecha_generacion' => $hoy, 'fecha_comunicacion' => $hoy, 'enviar_automatico' => true,
             'detalles' => [['tipo_documento' => '01', 'serie' => 'F001', 'correlativo' => '1', 'motivo' => 'Error en datos del cliente']]], $com->payload);
-        Queue::assertPushed(EnviarComunicacionJob::class);
 
         // Respuestas reales (Etapa 1: RA-01 y su /estado)
         Http::fake([
@@ -93,12 +90,11 @@ class BajasTest extends TestCase
             "{$this->base}/anulaciones/39/estado" => Http::response(['estado' => 'exito', 'datos' => ['id_anulacion' => 39, 'identifier' => 'RA-20261105-001',
                 'ticket' => '1793930873684', 'estado_sunat' => 'aceptado', 'codigo_sunat' => '0', 'descripcion_sunat' => 'La Comunicacion de baja RA-20261105-001, ha sido aceptada']]),
         ]);
-        (new EnviarComunicacionJob($com->id))->handle(app(BajaService::class), app(ResumenService::class));
+        app(\App\Modules\Facturacion\Services\ProcesoSunat::class)->enviarComunicacion(\App\Models\Comunicacion::withoutGlobalScopes()->find($com->id));
         $this->assertSame('enviado', $com->fresh()->estado);
         $this->assertSame('aceptado', $f->fresh()->estado); // aún no hay efectos
-        Queue::assertPushed(ConsultarComunicacionJob::class);
 
-        (new ConsultarComunicacionJob($com->id, 1))->handle(app(BajaService::class), app(ResumenService::class));
+        app(\App\Modules\Facturacion\Services\ProcesoSunat::class)->actualizarComunicacion(\App\Models\Comunicacion::withoutGlobalScopes()->find($com->id), forzar: true);
         $com->refresh();
         $this->assertSame(['aceptado', 'RA-20261105-001', '0'], [$com->estado, $com->identifier, $com->sunat_codigo]);
         $this->assertSame('anulado', $f->fresh()->estado);
@@ -150,8 +146,8 @@ class BajasTest extends TestCase
             "{$this->base}/anulaciones/41/estado" => Http::response(['estado' => 'exito', 'datos' => ['id_anulacion' => 41, 'estado_sunat' => 'rechazado', 'codigo_sunat' => '2301',
                 'descripcion_sunat' => 'La fecha del IssueDate no debe ser mayor a la fecha de recepción']]),
         ]);
-        (new EnviarComunicacionJob($com->id))->handle(app(BajaService::class), app(ResumenService::class));
-        (new ConsultarComunicacionJob($com->id, 1))->handle(app(BajaService::class), app(ResumenService::class));
+        app(\App\Modules\Facturacion\Services\ProcesoSunat::class)->enviarComunicacion(\App\Models\Comunicacion::withoutGlobalScopes()->find($com->id));
+        app(\App\Modules\Facturacion\Services\ProcesoSunat::class)->actualizarComunicacion(\App\Models\Comunicacion::withoutGlobalScopes()->find($com->id), forzar: true);
         $this->assertSame('rechazado', $com->fresh()->estado);
         $this->assertSame('aceptado', $f->fresh()->estado);
         $this->assertSame('8.0000', $this->stock());

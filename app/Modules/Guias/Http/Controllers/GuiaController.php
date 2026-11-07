@@ -11,8 +11,7 @@ use App\Models\Establecimiento;
 use App\Models\GuiaRemision;
 use App\Models\Serie;
 use App\Modules\Clientes\DocumentoIdentidad;
-use App\Modules\Guias\Jobs\ConsultarGuiaJob;
-use App\Modules\Guias\Jobs\EmitirGuiaJob;
+use App\Modules\Facturacion\Services\ProcesoSunat;
 use App\Modules\Guias\Services\GuiaService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,7 +24,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class GuiaController extends Controller
 {
-    public function __construct(private readonly EmpresaActual $empresa, private readonly GuiaService $svc) {}
+    public function __construct(private readonly EmpresaActual $empresa, private readonly GuiaService $svc, private readonly ProcesoSunat $proceso) {}
 
     public static function dto(GuiaRemision $g, bool $detalle = false): array
     {
@@ -57,6 +56,7 @@ class GuiaController extends Controller
     public function index(Request $request): JsonResponse
     {
         $f = $request->validate(['q' => ['nullable', 'string', 'max:100'], 'estado' => ['nullable', Rule::in(['por_enviar', 'enviado', 'aceptado', 'rechazado', 'error'])]]);
+        $this->proceso->actualizarPendientes($this->empresa->id()); // estados de SUNAT sin cola de trabajos
         $p = GuiaRemision::query()->with('comprobante')
             ->when($f['estado'] ?? null, fn ($q, $e) => $q->where('estado', $e))
             ->when($f['q'] ?? null, function ($q, $t) {
@@ -77,7 +77,9 @@ class GuiaController extends Controller
 
     public function show(GuiaRemision $guia): JsonResponse
     {
-        return response()->json(['data' => self::dto($guia->load(['comprobante', 'usuario:id,name']), true)]);
+        $this->proceso->actualizarGuia($guia);
+
+        return response()->json(['data' => self::dto($guia->refresh()->load(['comprobante', 'usuario:id,name']), true)]);
     }
 
     /** Datos para el formulario; con ?comprobante_id= precarga destinatario, llegada y bienes de la venta. */
@@ -182,7 +184,7 @@ class GuiaController extends Controller
 
         $g = $this->svc->crear($this->empresa->get(), $request->user(), $d);
 
-        return response()->json(['data' => self::dto($g->fresh(['comprobante']), true), 'message' => "Guía {$g->numero()} registrada y en cola de envío a SUNAT."], 201);
+        return response()->json(['data' => self::dto($g->fresh(['comprobante']), true), 'message' => "Guía {$g->numero()} ".($g->fresh()->ultimo_error ? 'registrada; aún no se pudo enviar (se reintentará).' : 'enviada a SUNAT.')], 201);
     }
 
     /** Reenvía (error reenviable o falla de envío) o vuelve a consultar el estado. */
@@ -192,20 +194,24 @@ class GuiaController extends Controller
             throw ValidationException::withMessages(['estado' => "La guía ya está {$guia->estado}."]);
         }
         if ($guia->estado === 'enviado') {
-            ConsultarGuiaJob::dispatch($guia->id, 1);
+            $this->proceso->actualizarGuia($guia, forzar: true);
         } else {
-            $guia->cambiarEstado('por_enviar', $guia->api_id ? 'Reenvío a SUNAT solicitado' : 'Reintento de envío solicitado', ['ultimo_error' => null]);
-            EmitirGuiaJob::dispatch($guia->id);
+            $guia->cambiarEstado('por_enviar', $guia->api_id ? 'Reenvío a SUNAT solicitado' : 'Reintento de envío solicitado', ['ultimo_error' => null, 'intentos' => 0]);
+            $this->proceso->emitirGuia($guia);
         }
         $auditor->registrar('guia.reintento', $guia, [], ['numero' => $guia->numero()], $guia->empresa_id);
 
-        return response()->json(['data' => self::dto($guia->fresh(['comprobante']), true), 'message' => 'Reintento en cola.']);
+        return response()->json(['data' => self::dto($guia->fresh(['comprobante']), true), 'message' => 'Reintento realizado.']);
     }
 
     /** Archivos guardados; el PDF de una guía aún no aceptada se obtiene en el momento desde la API (vista previa). */
     public function archivo(GuiaRemision $guia, string $tipo): StreamedResponse|Response
     {
         $mime = ['xml' => 'application/xml', 'cdr' => 'application/zip', 'pdf' => 'application/pdf'][$tipo];
+        if (! ($guia->archivos[$tipo] ?? null) && $guia->api_id && $guia->estado === 'aceptado') {
+            $this->proceso->descargarArchivosGuia($guia, [$tipo]); // sin cola: se trae de la API en el momento
+            $guia->refresh();
+        }
         if ($a = ($guia->archivos[$tipo] ?? null)) {
             return Storage::disk('local')->download($a['path'], basename($a['path']), ['Content-Type' => $mime]);
         }

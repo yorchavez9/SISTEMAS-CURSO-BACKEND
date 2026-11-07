@@ -34,7 +34,7 @@ class EmisionService
 
     public function __construct(private readonly SunatApiClientFactory $factory) {}
 
-    /** Envía el comprobante. Devuelve enviado | final | error. Lanza excepciones de conexión/límite para que la cola reintente. */
+    /** Envía el comprobante. Devuelve enviado | final | error. Lanza excepciones de conexión/límite: ProcesoSunat las registra y se reintenta al consultar. */
     public function emitir(Comprobante $c): string
     {
         if ($c->api_id) {

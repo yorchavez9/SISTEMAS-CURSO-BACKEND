@@ -6,10 +6,9 @@ use App\Core\Auditoria\Auditor;
 use App\Http\Controllers\Controller;
 use App\Models\ApiSolicitud;
 use App\Models\Comprobante;
-use App\Modules\Facturacion\Jobs\ConsultarEstadoComprobanteJob;
-use App\Modules\Facturacion\Jobs\DescargarArchivosComprobanteJob;
-use App\Modules\Facturacion\Jobs\EmitirComprobanteJob;
+use App\Core\Tenancy\EmpresaActual;
 use App\Modules\Facturacion\Services\EmisionService;
+use App\Modules\Facturacion\Services\ProcesoSunat;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 use Illuminate\Http\Request;
@@ -19,6 +18,24 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ComprobanteController extends Controller
 {
+    public function __construct(private readonly ProcesoSunat $proceso, private readonly EmpresaActual $empresa) {}
+
+    /** Texto para el usuario según cómo quedó el envío a la API (se hace en la misma solicitud, sin cola). */
+    public static function mensajeEnvio(Comprobante $c): string
+    {
+        return match ($c->estado) {
+            'aceptado' => "{$c->numero()} aceptado por SUNAT.",
+            'observado' => "{$c->numero()} aceptado por SUNAT con observaciones.",
+            'rechazado' => "{$c->numero()} rechazado por SUNAT: {$c->sunat_codigo} {$c->sunat_descripcion}",
+            'enviado' => "{$c->numero()} enviado a SUNAT; esperando su respuesta.",
+            'pendiente_resumen' => "{$c->numero()} registrada; se informará a SUNAT en el resumen diario.",
+            'error' => "{$c->numero()} no se pudo enviar: {$c->ultimo_error}",
+            default => $c->ultimo_error
+                ? "{$c->numero()} registrado, pero aún no se pudo enviar a la API (se reintentará al consultarlo)."
+                : "{$c->numero()} registrado.",
+        };
+    }
+
     public static function resumen(Comprobante $c): array
     {
         return [
@@ -55,6 +72,8 @@ class ComprobanteController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        // Sin cola de trabajos: al listar se refrescan (acotado) los comprobantes que esperan respuesta de SUNAT.
+        $this->proceso->actualizarPendientes($this->empresa->id());
         $q = trim((string) $request->query('q', ''));
         $p = Comprobante::query()
             ->when($request->filled('tipo_documento'), fn ($w) => $w->where('tipo_documento', $request->query('tipo_documento')))
@@ -82,7 +101,9 @@ class ComprobanteController extends Controller
 
     public function show(Comprobante $comprobante): JsonResponse
     {
-        $c = $comprobante->load(['estados', 'archivos', 'venta.detalles', 'venta.cuotas', 'items', 'referencia', 'notas']);
+        // La pantalla consulta cada pocos segundos mientras está pendiente: aquí se envía o se lee su estado en la API.
+        $this->proceso->actualizar($comprobante);
+        $c = $comprobante->refresh()->load(['estados', 'archivos', 'venta.detalles', 'venta.cuotas', 'items', 'referencia', 'notas']);
         $totales = $c->only(['gravadas', 'exoneradas', 'inafectas', 'exportacion', 'gratuitas', 'base_ivap', 'igv', 'ivap', 'isc', 'icbper', 'descuentos_globales', 'total_impuestos', 'valor_venta', 'sub_total', 'total']);
 
         return response()->json(['data' => self::resumen($c) + [
@@ -108,15 +129,17 @@ class ComprobanteController extends Controller
         ]]);
     }
 
-    /** Descarga protegida (solo usuarios de la empresa con permiso). Si aún no está guardado, intenta traerlo. */
+    /** Descarga protegida (solo usuarios de la empresa con permiso). Si aún no está guardado, se trae de la API en el momento. */
     public function archivo(Comprobante $comprobante, string $tipo): StreamedResponse|JsonResponse
     {
         $a = $comprobante->archivos()->where('tipo', $tipo)->first();
+        if (! $a && $comprobante->api_id) {
+            $this->proceso->descargarArchivos($comprobante, [$tipo]);
+            $a = $comprobante->archivos()->where('tipo', $tipo)->first();
+        }
         if (! $a) {
-            if ($comprobante->api_id) {
-                DescargarArchivosComprobanteJob::dispatch($comprobante->id);
-            }
-            abort(404, 'El archivo aún no está disponible. Intenta en unos segundos.');
+            abort(404, $tipo === 'cdr' && ! in_array($comprobante->estado, ['aceptado', 'observado', 'anulado'], true)
+                ? 'El CDR estará disponible cuando SUNAT responda.' : 'El archivo aún no está disponible. Intenta en unos segundos.');
         }
         $mime = ['xml' => 'application/xml', 'cdr' => 'application/zip', 'pdf' => 'application/pdf'][$tipo];
 
@@ -131,13 +154,13 @@ class ComprobanteController extends Controller
         }
         if (! $comprobante->api_id) {
             // Si el número quedó ocupado por otro documento, el envío renumera automáticamente (máx. 3 veces).
-            $comprobante->cambiarEstado('por_enviar', 'Reintento manual solicitado');
-            EmitirComprobanteJob::dispatch($comprobante->id);
+            $comprobante->cambiarEstado('por_enviar', 'Reintento manual solicitado', ['intentos' => 0]);
+            $this->proceso->emitir($comprobante);
         } else {
-            ConsultarEstadoComprobanteJob::dispatch($comprobante->id, 1);
+            $this->proceso->actualizar($comprobante, forzar: true);
         }
         $auditor->registrar('comprobante.reintento', $comprobante, [], ['numero' => $comprobante->numero()]);
 
-        return response()->json(['data' => self::resumen($comprobante->fresh()), 'message' => 'Reintento en cola.']);
+        return response()->json(['data' => self::resumen($comprobante->fresh()), 'message' => 'Reintento realizado.']);
     }
 }

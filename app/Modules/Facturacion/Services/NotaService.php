@@ -12,7 +12,6 @@ use App\Models\Venta;
 use App\Models\VentaDetalle;
 use App\Modules\Caja\Services\CajaService;
 use App\Modules\Caja\Services\PagoService;
-use App\Modules\Facturacion\Jobs\EmitirComprobanteJob;
 use App\Modules\Inventario\Services\InventarioService;
 use App\Modules\Tributos\Calculo\CalculadoraComprobante;
 use App\Modules\Tributos\Calculo\Dec;
@@ -153,7 +152,7 @@ class NotaService
                 }
             }
 
-            EmitirComprobanteJob::dispatch($nota->id)->afterCommit();
+            ProcesoSunat::programarComprobante($nota->id);
 
             return $nota;
         });

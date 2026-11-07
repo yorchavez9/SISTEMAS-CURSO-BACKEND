@@ -9,9 +9,8 @@ use App\Integrations\SunatApi\SunatApiClientFactory;
 use App\Models\ApiSolicitud;
 use App\Models\Comunicacion;
 use App\Models\Empresa;
-use App\Modules\Facturacion\Jobs\ConsultarComunicacionJob;
-use App\Modules\Facturacion\Jobs\EnviarComunicacionJob;
 use App\Modules\Facturacion\Services\BajaService;
+use App\Modules\Facturacion\Services\ProcesoSunat;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -20,7 +19,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class BajaController extends Controller
 {
-    public function __construct(private readonly EmpresaActual $empresa, private readonly BajaService $svc) {}
+    public function __construct(private readonly EmpresaActual $empresa, private readonly BajaService $svc, private readonly ProcesoSunat $proceso) {}
 
     public static function dto(Comunicacion $c): array
     {
@@ -40,6 +39,7 @@ class BajaController extends Controller
     public function index(Request $request): JsonResponse
     {
         $accion = $request->validate(['accion' => ['sometimes', 'in:anulacion,envio']])['accion'] ?? 'anulacion';
+        $this->proceso->actualizarPendientes($this->empresa->id()); // estados de SUNAT sin cola de trabajos
         $p = Comunicacion::query()->where('accion', $accion)->with(['items.comprobante', 'usuario:id,name'])->orderByDesc('id')->paginate(15);
 
         return response()->json([
@@ -57,7 +57,10 @@ class BajaController extends Controller
         ], [], ['comprobante_ids' => 'comprobantes']);
         $c = $this->svc->solicitar($this->empresa->get(), $request->user(), $d['comprobante_ids'], $d['motivo']);
 
-        return response()->json(['data' => self::dto($c), 'message' => ($c->tipo === 'RA' ? 'Comunicación de baja' : 'Resumen de anulación').' en cola de envío a SUNAT.'], 201);
+        $c->refresh();
+
+        return response()->json(['data' => self::dto($c), 'message' => ($c->tipo === 'RA' ? 'Comunicación de baja' : 'Resumen de anulación')
+            .($c->ultimo_error ? ' registrada; aún no se pudo enviar (se reintentará).' : ' enviada a SUNAT.')], 201);
     }
 
     public function reintentar(Comunicacion $comunicacion): JsonResponse
@@ -70,15 +73,15 @@ class BajaController extends Controller
             throw ValidationException::withMessages(['estado' => 'Este resumen no llegó a crearse en la API. Genera uno nuevo desde "Resumen diario".']);
         }
         if ($comunicacion->accion === 'envio' && $comunicacion->api_id && $comunicacion->estado === 'por_enviar') {
-            EnviarComunicacionJob::dispatch($comunicacion->id); // creado en la API pero no enviado a SUNAT
+            $this->proceso->enviarComunicacion($comunicacion); // creado en la API pero no enviado a SUNAT
         } elseif ($comunicacion->api_id) {
-            ConsultarComunicacionJob::dispatch($comunicacion->id, 1);
+            $this->proceso->actualizarComunicacion($comunicacion, forzar: true);
         } else {
-            $comunicacion->update(['estado' => 'por_enviar', 'ultimo_error' => null]);
-            EnviarComunicacionJob::dispatch($comunicacion->id);
+            $comunicacion->update(['estado' => 'por_enviar', 'ultimo_error' => null, 'intentos' => 0]);
+            $this->proceso->enviarComunicacion($comunicacion);
         }
 
-        return response()->json(['data' => self::dto($comunicacion->fresh()), 'message' => 'Reintento en cola.']);
+        return response()->json(['data' => self::dto($comunicacion->fresh()), 'message' => 'Reintento realizado.']);
     }
 
     /**
