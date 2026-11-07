@@ -108,6 +108,7 @@ DB_PASSWORD=<contraseña de la base>
 
 # Sesión compartida entre los dos subdominios (OBLIGATORIO)
 SESSION_DRIVER=database
+SESSION_COOKIE=sistemacurso_session
 SESSION_DOMAIN=.kodevo.es
 SESSION_SECURE_COOKIE=true
 FRONTEND_URL=https://sistemacurso.kodevo.es
@@ -126,6 +127,7 @@ Qué hace cada una de las variables de sesión (si falla el login, revisa estas 
 | Variable | Valor | Para qué sirve | Si está mal… |
 |---|---|---|---|
 | `SESSION_DOMAIN` | `.kodevo.es` (con el punto) | La cookie de sesión y la `XSRF-TOKEN` valen para todos los subdominios | Error **419** al registrar o iniciar sesión |
+| `SESSION_COOKIE` | Un nombre propio, p. ej. `sistemacurso_session` | Evita choques con cookies `laravel-session` de otras apps del mismo dominio o de pruebas anteriores | **"CSRF token mismatch"** aunque todo lo demás esté bien |
 | `FRONTEND_URL` | `https://sistemacurso.kodevo.es` (sin `/` final) | Origen permitido por CORS (`config/cors.php`) | El navegador bloquea las llamadas: error **CORS** en la consola |
 | `SANCTUM_STATEFUL_DOMAINS` | `sistemacurso.kodevo.es` (sin `https://`) | Sanctum trata esas peticiones como sesión de navegador | Inicia sesión pero luego todo da **401** |
 | `SESSION_SECURE_COOKIE` | `true` | Cookies solo por HTTPS | — |
@@ -145,6 +147,8 @@ php artisan route:cache
 ```
 
 > Cada vez que cambies el `.env` ejecuta otra vez `php artisan config:cache` (o `config:clear`). Laravel lee la configuración en caché, no el archivo.
+
+> **Configura las variables de sesión ANTES de abrir el sistema por primera vez.** Si el navegador ya visitó el backend con otra configuración, guarda cookies viejas con el mismo nombre que las nuevas y aparece **"CSRF token mismatch"**. Solución: cambiar `SESSION_COOKIE` (y `config:cache`) o borrar las cookies del dominio en el navegador (ver §11).
 
 ---
 
@@ -275,6 +279,7 @@ php artisan up
 | El login dice **"No se pudo conectar con el servidor (https://sistemacurso…/api/v1)"** | El frontend se compiló sin `VITE_API_URL` | Revisa `.env.production` del frontend (paso 7) y redistribuye |
 | No aparece el registro del superadministrador | Mismo problema anterior, o ya existe un usuario | Comprobación 1 del paso 8 |
 | Error **419** ("CSRF token mismatch" / "La página expiró") | `SESSION_DOMAIN` no es `.kodevo.es`, o la configuración está en caché | Corrige el `.env` (paso 5) y ejecuta `php artisan config:cache` |
+| **"CSRF token mismatch"** con `SESSION_DOMAIN` ya correcto (p. ej. funcionó el registro y falla la siguiente acción) | El navegador conserva cookies viejas de `cursoapi…` con el mismo nombre que las nuevas de `.kodevo.es`; el backend lee la vieja | Pon `SESSION_COOKIE=sistemacurso_session` + `php artisan config:cache`, o borra las cookies: candado de la barra de direcciones → *Cookies y datos de sitios* → eliminar las de `kodevo.es` y `cursoapi.kodevo.es`. Luego vuelve a iniciar sesión |
 | En la consola del navegador: **"blocked by CORS policy"** | `FRONTEND_URL` distinto del origen real (con `/` final, `http` en vez de `https`, `www`…) | Debe ser exactamente `https://sistemacurso.kodevo.es`; luego `config:cache` |
 | Inicia sesión pero todo devuelve **401** | `SANCTUM_STATEFUL_DOMAINS` no contiene el dominio del frontend | Ponlo sin `https://` y sin `/`; luego `config:cache` |
 | Comprobantes en **"Por enviar"** para siempre | El cron de la cola (paso 6a) no corre | Revisa la ruta del cron y ejecútalo a mano por SSH para ver el error |
