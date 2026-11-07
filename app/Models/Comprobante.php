@@ -63,6 +63,12 @@ class Comprobante extends Model
     }
 
     /** Notas de crédito/débito que modifican este comprobante. */
+    /** Nota de crédito total que anuló este comprobante (estado SUNAT del comprobante: aceptado). */
+    public function anuladoPorNota(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'anulado_por_nota_id');
+    }
+
     public function notas(): HasMany
     {
         return $this->hasMany(self::class, 'comprobante_referencia_id');

@@ -64,6 +64,9 @@ class NotaService
             if (! $ref || ! in_array($ref->tipo_documento, ['01', '03'], true) || ! $ref->venta) {
                 throw ValidationException::withMessages(['comprobante_id' => 'Solo se emiten notas sobre facturas o boletas registradas en el sistema.']);
             }
+            if ($ref->anulado_por_nota_id) {
+                throw ValidationException::withMessages(['comprobante_id' => "El comprobante {$ref->numero()} ya fue anulado por la nota de crédito {$ref->anuladoPorNota?->numero()}."]);
+            }
             if ($ref->estado !== 'aceptado') {
                 throw ValidationException::withMessages(['comprobante_id' => "El comprobante {$ref->numero()} no está aceptado por SUNAT (estado: {$ref->estado})."]);
             }

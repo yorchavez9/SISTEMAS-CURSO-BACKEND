@@ -25,7 +25,10 @@ class ComprobanteController extends Controller
             'id' => $c->id, 'tipo_documento' => $c->tipo_documento, 'numero' => $c->numero(), 'serie' => $c->serie, 'correlativo' => $c->correlativo,
             'fecha_emision' => $c->fecha_emision->toDateString(), 'moneda' => $c->moneda, 'total' => (float) $c->total,
             'cliente' => ['tipo_doc' => $c->cliente_tipo_doc, 'num_doc' => $c->cliente_num_doc, 'razon_social' => $c->cliente_razon_social],
-            'estado' => $c->estado, 'sunat_codigo' => $c->sunat_codigo, 'sunat_descripcion' => $c->sunat_descripcion,
+            // Anulado por una NC total: se muestra "anulado"; estado_sunat conserva la respuesta de SUNAT (aceptado).
+            'estado' => $c->anulado_por_nota_id ? 'anulado' : $c->estado, 'estado_sunat' => $c->estado,
+            'anulado_por' => $c->anulado_por_nota_id ? ['id' => $c->anulado_por_nota_id, 'numero' => $c->anuladoPorNota?->numero()] : null,
+            'sunat_codigo' => $c->sunat_codigo, 'sunat_descripcion' => $c->sunat_descripcion,
             'diferencia_totales' => $c->diferencia_totales, 'ultimo_error' => $c->ultimo_error,
             // La API genera el PDF (A4, A5, ticket 80/58 mm) en cuanto registra el documento, antes de la respuesta de SUNAT.
             'imprimible' => $c->api_id !== null && ! in_array($c->estado, ['rechazado', 'error'], true),
@@ -55,7 +58,11 @@ class ComprobanteController extends Controller
         $q = trim((string) $request->query('q', ''));
         $p = Comprobante::query()
             ->when($request->filled('tipo_documento'), fn ($w) => $w->where('tipo_documento', $request->query('tipo_documento')))
-            ->when($request->filled('estado'), fn ($w) => $w->where('estado', $request->query('estado')))
+            ->when($request->filled('estado'), fn ($w) => match ($request->query('estado')) {
+                'anulado' => $w->where(fn ($x) => $x->where('estado', 'anulado')->orWhereNotNull('anulado_por_nota_id')),
+                'aceptado' => $w->where('estado', 'aceptado')->whereNull('anulado_por_nota_id'),
+                default => $w->where('estado', $request->query('estado')),
+            })
             ->when($request->filled('desde'), fn ($w) => $w->whereDate('fecha_emision', '>=', $request->query('desde')))
             ->when($request->filled('hasta'), fn ($w) => $w->whereDate('fecha_emision', '<=', $request->query('hasta')))
             ->when($q !== '', function ($w) use ($q) {
@@ -65,7 +72,7 @@ class ComprobanteController extends Controller
 
                 return $w->where(fn ($x) => $x->where('cliente_num_doc', 'like', "$q%")->orWhere('cliente_razon_social', 'like', "%$q%"));
             })
-            ->orderByDesc('id')->paginate(min(100, max(5, (int) $request->query('por_pagina', 15))));
+            ->with('anuladoPorNota')->orderByDesc('id')->paginate(min(100, max(5, (int) $request->query('por_pagina', 15))));
 
         return response()->json([
             'data' => $p->getCollection()->map(fn ($c) => self::resumen($c) + ['archivos' => $c->archivos()->pluck('tipo')]),

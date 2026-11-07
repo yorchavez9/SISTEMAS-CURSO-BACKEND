@@ -188,4 +188,56 @@ class NotasTest extends TestCase
         Http::assertSent(fn (Request $r) => $r->url() === "$base/notas-credito" && $r['doc_afectado_serie'] === 'F001');
         $this->assertFalse($nc->fresh()->diferencia_totales);
     }
+
+    public function test_factura_queda_anulada_cuando_sunat_acepta_la_nc_total(): void
+    {
+        $ref = $this->facturaAceptada();
+        $this->nota($ref, ['cod_motivo' => '01', 'des_motivo' => 'Anulación de la operación'])->assertCreated();
+        $nc = Comprobante::withoutGlobalScopes()->where('tipo_documento', '07')->sole();
+        $base = rtrim(config('services.sunat_api.base_url'), '/');
+
+        // Mientras SUNAT no acepte la NC, la factura sigue aceptada.
+        Http::fake([
+            "$base/notas-credito" => Http::response(['estado' => 'exito', 'datos' => ['id' => 26, 'serie' => 'FC01', 'correlativo' => 1,
+                'totales' => ['total' => 224.2], 'sunat' => ['estado' => 'enviado']]], 201),
+            "$base/notas-credito/26" => Http::response(['estado' => 'exito', 'datos' => ['id' => 26, 'serie' => 'FC01', 'correlativo' => 1,
+                'totales' => ['total' => 224.2], 'sunat' => ['estado' => 'aceptado', 'codigo' => '0', 'descripcion' => 'La Nota de Credito numero FC01-1, ha sido aceptada']]]),
+        ]);
+        app(EmisionService::class)->emitir($nc);
+        $this->assertNull($ref->fresh()->anulado_por_nota_id);
+        $this->actingAs($this->admin)->getJson("/api/v1/comprobantes/{$ref->id}")->assertJsonPath('data.estado', 'aceptado');
+
+        app(EmisionService::class)->consultarEstado($nc->fresh());
+        $this->assertSame('aceptado', $nc->fresh()->estado);
+        $ref->refresh();
+        $this->assertSame([$nc->id, 'aceptado'], [$ref->anulado_por_nota_id, $ref->estado]); // estado SUNAT intacto (reportes)
+
+        $this->actingAs($this->admin)->getJson("/api/v1/comprobantes/{$ref->id}")->assertOk()
+            ->assertJsonPath('data.estado', 'anulado')->assertJsonPath('data.estado_sunat', 'aceptado')
+            ->assertJsonPath('data.anulado_por.numero', 'FC01-1')
+            ->assertJsonPath('data.historial.'.($ref->estados()->count() - 1).'.a', 'anulado');
+        $this->actingAs($this->admin)->getJson('/api/v1/comprobantes?estado=anulado')->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $ref->id);
+        $this->actingAs($this->admin)->getJson('/api/v1/comprobantes?estado=aceptado&tipo_documento=01')->assertJsonCount(0, 'data');
+
+        // Ya no admite otra nota ni baja.
+        $this->actingAs($this->admin)->postJson('/api/v1/notas', ['idempotency_key' => (string) Str::uuid(), 'tipo_documento' => '08',
+            'comprobante_id' => $ref->id, 'serie_id' => $this->fc01->id, 'cod_motivo' => '02', 'des_motivo' => 'Intereses', 'items' => [['descripcion' => 'Intereses', 'precio_unitario' => 10]]])
+            ->assertStatus(422)->assertJsonValidationErrors('comprobante_id');
+        $this->actingAs($this->admin)->postJson('/api/v1/bajas', ['comprobante_ids' => [$ref->id], 'motivo' => 'Error en la factura'])
+            ->assertStatus(422)->assertJsonValidationErrors('comprobante_ids');
+    }
+
+    public function test_nc_parcial_no_anula_la_factura(): void
+    {
+        $ref = $this->facturaAceptada();
+        $this->nota($ref, ['cod_motivo' => '04', 'des_motivo' => 'Descuento', 'items' => [['descripcion' => 'Descuento', 'precio_unitario' => 20]]])->assertCreated();
+        $nc = Comprobante::withoutGlobalScopes()->where('tipo_documento', '07')->sole();
+        $nc->update(['api_id' => 27]);
+        $base = rtrim(config('services.sunat_api.base_url'), '/');
+        Http::fake(["$base/notas-credito/27" => Http::response(['estado' => 'exito', 'datos' => ['id' => 27, 'serie' => 'FC01', 'correlativo' => 1,
+            'totales' => ['total' => 20], 'sunat' => ['estado' => 'aceptado', 'codigo' => '0']]])]);
+        app(EmisionService::class)->consultarEstado($nc->fresh());
+        $this->assertSame('aceptado', $nc->fresh()->estado);
+        $this->assertNull($ref->fresh()->anulado_por_nota_id);
+    }
 }

@@ -229,6 +229,27 @@ class EmisionService
         }
         $texto = $detalle ?? (in_array($estado, Comprobante::FINALES, true) ? trim(($extra['sunat_codigo'] ?? '').' '.($extra['sunat_descripcion'] ?? '')) : null);
         $c->cambiarEstado($estado, $texto, $extra);
+        $this->anularReferenciaSiCorresponde($c);
+    }
+
+    /**
+     * Una nota de crédito total (01 anulación de la operación, 02 anulación por error en el RUC, 06 devolución total)
+     * aceptada por SUNAT anula el comprobante al que se refiere. Su estado SUNAT sigue "aceptado"; se marca
+     * anulado_por_nota_id para mostrarlo como Anulado y bloquear nuevas notas, bajas y guías.
+     */
+    private function anularReferenciaSiCorresponde(Comprobante $nota): void
+    {
+        if ($nota->tipo_documento !== '07' || ! in_array($nota->cod_motivo, NotaService::NC_TOTAL, true)
+            || ! in_array($nota->estado, ['aceptado', 'observado'], true) || ! $nota->comprobante_referencia_id) {
+            return;
+        }
+        $ref = Comprobante::withoutGlobalScopes()->find($nota->comprobante_referencia_id);
+        if (! $ref || $ref->anulado_por_nota_id) {
+            return;
+        }
+        $ref->update(['anulado_por_nota_id' => $nota->id]);
+        $ref->estados()->create(['estado_anterior' => $ref->estado, 'estado_nuevo' => 'anulado',
+            'detalle' => "Anulado por la nota de crédito {$nota->numero()} (motivo {$nota->cod_motivo}: {$nota->des_motivo})"]);
     }
 
     private function api(Comprobante $c): SunatApiClient

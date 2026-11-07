@@ -51,6 +51,9 @@ class BajaService
                 throw ValidationException::withMessages(['comprobante_ids' => 'Comprobante no encontrado.']);
             }
             foreach ($cs as $c) {
+                if ($c->anulado_por_nota_id) {
+                    throw ValidationException::withMessages(['comprobante_ids' => "{$c->numero()} ya fue anulado por la nota de crédito {$c->anuladoPorNota?->numero()}."]);
+                }
                 if ($c->estado !== 'aceptado') {
                     throw ValidationException::withMessages(['comprobante_ids' => "{$c->numero()} no está aceptado por SUNAT (estado: {$c->estado})."]);
                 }
