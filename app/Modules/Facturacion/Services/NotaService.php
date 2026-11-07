@@ -99,7 +99,9 @@ class NotaService
             $serie->correlativo_actual++;
             $serie->save();
             $hoy = Carbon::now('America/Lima')->toDateString();
-            $cliente = array_filter(['tipo_doc' => $ref->cliente_tipo_doc, 'num_doc' => $ref->cliente_num_doc, 'razon_social' => $ref->cliente_razon_social, 'direccion' => $ref->cliente_direccion]);
+            // Sin array_filter "a secas": descartaría tipo_doc "0" (consumidor final) y la API respondería 422.
+            $cliente = array_filter(['tipo_doc' => $ref->cliente_tipo_doc, 'num_doc' => $ref->cliente_num_doc, 'razon_social' => $ref->cliente_razon_social, 'direccion' => $ref->cliente_direccion],
+                fn ($v) => $v !== null && $v !== '');
             // Estructura de los ejemplos Postman NC-01 / ND-01 (doc_afectado_*, cod_motivo, des_motivo).
             $payload = [
                 'serie' => $serie->serie, 'correlativo' => $serie->correlativo_actual, 'fecha_emision' => $hoy, 'tipo_moneda' => $ref->moneda,

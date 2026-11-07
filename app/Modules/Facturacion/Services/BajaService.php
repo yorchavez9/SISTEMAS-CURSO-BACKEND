@@ -26,6 +26,9 @@ use Illuminate\Validation\ValidationException;
  * Bajas ante SUNAT:
  *  - RA (POST /anulaciones): facturas y sus notas (serie F). Ejemplos Postman RA-01/RA-02 aceptados.
  *  - RC de anulación (POST /resumenes con "anular"): boletas. Ejemplo RC-02 aceptado.
+ *  - Notas de boletas (BC/BD): SUNAT las anula por resumen diario, pero la API solo admite boletas en "anular"
+ *    (H-15, probado 2026-11-06 con BC02-1: "No se encontraron boletas aceptadas por SUNAT para anular").
+ *    Hasta que la API lo soporte, se rechazan con un mensaje claro (no se envían por RA: SUNAT no las acepta así).
  * Hallazgo H-1 (corregido): si se omite fecha_comunicacion la API usa la fecha UTC y SUNAT rechaza con 2301
  * después de las 19:00 de Lima. Por eso SIEMPRE se envía fecha_comunicacion con la fecha de Lima.
  */
@@ -61,7 +64,7 @@ class BajaService
                     throw ValidationException::withMessages(['comprobante_ids' => "{$c->numero()} superó el plazo de ".self::PLAZO_DIAS.' días para la baja: emite una nota de crédito 01.']);
                 }
                 if ($c->tipo_documento !== '03' && $c->serie[0] !== 'F') {
-                    throw ValidationException::withMessages(['comprobante_ids' => "{$c->numero()}: las notas de boletas se anulan con otra nota; la baja por resumen está validada solo para boletas."]);
+                    throw ValidationException::withMessages(['comprobante_ids' => "{$c->numero()}: las notas de boletas se anulan por resumen diario, pero la API de facturación todavía no lo permite (solo admite boletas)."]);
                 }
                 $activa = ComunicacionItem::query()->where('comprobante_id', $c->id)
                     ->join('comunicaciones', 'comunicaciones.id', '=', 'comunicacion_items.comunicacion_id')

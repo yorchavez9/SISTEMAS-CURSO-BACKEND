@@ -100,6 +100,7 @@
   - las notas de venta no se implementan: además del defecto, toda venta debe sustentarse con un comprobante electrónico.
   - **Corrección en la API:** usar `CAST(... AS INTEGER)` o una secuencia, y no devolver el mensaje SQL al cliente.
 - **H-14 (limitación de la API, 2026-11-06):** `GET /resumenes/{id}/xml` y `/cdr` devuelven el XML (`application/xml`) y el CDR (`application/zip`) del RC, tanto el de envío como el de anulación. En cambio, `GET /anulaciones/{id}/cdr` de una comunicación de baja (RA) **aceptada** responde 404 `"CDR de la anulación no disponible"`, aunque `/estado` informa código 0. El XML del RA sí se descarga. En el sistema, el botón CDR de una baja RA muestra ese mensaje de la API.
+- **H-15 (limitación de la API, 2026-11-06):** SUNAT exige anular por resumen diario (RC) tanto las boletas como sus notas de crédito y débito (series B). En la API, `POST /resumenes` con `anular` solo acepta **boletas**. Se probó con la NC aceptada BC02-1 (`id` 35 en `/notas-credito`, sin boleta con ese id) y la respuesta fue 422 `"No se encontraron boletas aceptadas por SUNAT para anular."`. Se intentó también con `tipo_documento` y con `tipo`, sin éxito, y en ningún caso se creó ni se envió nada. El sistema rechaza la baja de notas de boletas con un mensaje claro. Las notas no se envían por RA, porque SUNAT no las acepta así. Documentos de prueba de esta validación: boleta B002-1 (S/ 1.00) y NC BC02-1 (motivo 01), ambas aceptadas en beta.
 
 ## 6. Afectaciones del IGV: matriz real (fase G y ejemplos de Postman)
 

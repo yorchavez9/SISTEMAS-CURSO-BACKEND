@@ -240,4 +240,23 @@ class NotasTest extends TestCase
         $this->assertSame('aceptado', $nc->fresh()->estado);
         $this->assertNull($ref->fresh()->anulado_por_nota_id);
     }
+
+    public function test_nc_de_boleta_a_consumidor_final_conserva_tipo_doc_cero_y_no_admite_baja(): void
+    {
+        $b001 = Serie::create(['empresa_id' => $this->empresa->id, 'establecimiento_id' => $this->est->id, 'tipo_documento' => '03', 'serie' => 'B001', 'api_serie_id' => 1]);
+        $this->actingAs($this->admin)->postJson('/api/v1/ventas', ['idempotency_key' => (string) Str::uuid(), 'tipo_documento' => '03', 'serie_id' => $b001->id,
+            'cliente_id' => null, 'items' => [['descripcion' => 'Servicio', 'cantidad' => 1, 'precio_unitario' => 1, 'tip_afe_igv' => '10']]])->assertCreated();
+        $boleta = Comprobante::withoutGlobalScopes()->where('tipo_documento', '03')->sole();
+        $boleta->update(['estado' => 'aceptado', 'api_id' => 530]);
+
+        $this->nota($boleta, ['serie_id' => $this->bc01->id, 'cod_motivo' => '01', 'des_motivo' => 'Anulación de la operación'])->assertCreated();
+        $nc = Comprobante::withoutGlobalScopes()->where('tipo_documento', '07')->sole();
+        // Antes array_filter quitaba tipo_doc "0" y la API respondía 422 "El campo cliente.tipo doc es obligatorio" (BC02-1 en beta).
+        $this->assertEquals(['tipo_doc' => '0', 'num_doc' => '99999999', 'razon_social' => 'CONSUMIDOR FINAL'], $nc->payload['cliente']);
+
+        // H-15: la API no anula notas de boletas por resumen diario.
+        $nc->update(['estado' => 'aceptado', 'api_id' => 35]);
+        $this->actingAs($this->admin)->postJson('/api/v1/bajas', ['comprobante_ids' => [$nc->id], 'motivo' => 'Error en la nota'])
+            ->assertStatus(422)->assertJsonPath('errors.comprobante_ids.0', 'BC01-1: las notas de boletas se anulan por resumen diario, pero la API de facturación todavía no lo permite (solo admite boletas).');
+    }
 }
