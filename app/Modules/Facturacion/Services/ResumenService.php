@@ -25,8 +25,10 @@ use Illuminate\Validation\ValidationException;
  *  1. POST /resumenes {fecha_resumen, enviar_automatico:false} → 201 datos{id_resumen, identifier, estado_sunat:"pendiente", documentos[]}
  *  2. POST /resumenes/{id}/enviar → 200 datos{estado_sunat:"enviado"}
  *  3. GET /resumenes/{id}/estado → datos{estado_sunat, codigo_sunat, descripcion_sunat, documentos[{id, serie_nro, estado_sunat}]}
- * H-5: solo puede haber un RC de envío por fecha (422 "ya están incluidas en un resumen"); por eso solo se
- * resumen fechas ANTERIORES a hoy, cuando ya no se emitirán más boletas de ese día.
+ * H-5: la API rechaza un RC con boletas ya incluidas en otro (422 "ya están incluidas en un resumen"). El envío
+ * automático solo resume fechas ANTERIORES a hoy (cuando ya no se emitirán más boletas de ese día); el usuario
+ * puede enviar manualmente el de HOY. Mientras un RC de una fecha esté en curso no se crea otro para esa fecha;
+ * una vez aceptado, las boletas emitidas después pueden ir en un nuevo RC de la misma fecha.
  * La API incluye TODAS las boletas pendientes de la cuenta en esa fecha: las que no emitió este sistema
  * (otro sistema con la misma cuenta) se cuentan como "documentos_externos".
  */
@@ -42,8 +44,7 @@ class ResumenService
     public function pendientes(Empresa $empresa): Collection
     {
         $hoy = Carbon::now('America/Lima')->toDateString();
-        $activas = Comunicacion::deEmpresa($empresa->id)->where('accion', 'envio')->whereNotIn('estado', ['rechazado', 'error'])
-            ->get(['fecha_documentos', 'identifier', 'estado'])->keyBy(fn ($c) => $c->fecha_documentos->toDateString());
+        $activas = $this->enCurso($empresa)->get(['fecha_documentos', 'identifier', 'estado'])->keyBy(fn ($c) => $c->fecha_documentos->toDateString());
 
         return Comprobante::deEmpresa($empresa->id)->where('envio_por_resumen', true)->whereIn('estado', ['por_enviar', 'pendiente_resumen'])
             ->selectRaw("fecha_emision, SUM(estado = 'pendiente_resumen') registradas, SUM(estado = 'por_enviar') sin_registrar, SUM(total) total")
@@ -60,18 +61,27 @@ class ResumenService
             })->values();
     }
 
-    public function solicitar(Empresa $empresa, User $user, string $fecha): Comunicacion
+    /** RC de envío que aún no terminan (ni aceptados/rechazados ni en error). */
+    private function enCurso(Empresa $empresa)
+    {
+        return Comunicacion::deEmpresa($empresa->id)->where('accion', 'envio')->whereNotIn('estado', [...Comunicacion::FINALES, 'error']);
+    }
+
+    /** @param bool $permitirHoy true en el envío manual; el automático solo resume días anteriores. */
+    public function solicitar(Empresa $empresa, User $user, string $fecha, bool $permitirHoy = false): Comunicacion
     {
         $hoy = Carbon::now('America/Lima')->toDateString();
-        if ($fecha >= $hoy) {
-            throw ValidationException::withMessages(['fecha' => 'Solo se envía el resumen de días anteriores: SUNAT acepta un único resumen de envío por fecha y hoy aún pueden emitirse boletas.']);
+        if ($fecha > $hoy) {
+            throw ValidationException::withMessages(['fecha' => 'No se puede enviar el resumen de una fecha futura.']);
+        }
+        if ($fecha === $hoy && ! $permitirHoy) {
+            throw ValidationException::withMessages(['fecha' => 'El envío automático solo resume días anteriores; el de hoy se envía manualmente.']);
         }
 
         $com = DB::transaction(function () use ($empresa, $user, $fecha) {
-            $bloqueo = Comunicacion::deEmpresa($empresa->id)->where('accion', 'envio')->whereDate('fecha_documentos', $fecha)
-                ->whereNotIn('estado', ['rechazado', 'error'])->lockForUpdate()->first();
+            $bloqueo = $this->enCurso($empresa)->whereDate('fecha_documentos', $fecha)->lockForUpdate()->first();
             if ($bloqueo) {
-                throw ValidationException::withMessages(['fecha' => "Ya existe el resumen ".($bloqueo->identifier ?? "#{$bloqueo->id}")." para el $fecha (estado: {$bloqueo->estado})."]);
+                throw ValidationException::withMessages(['fecha' => "El resumen ".($bloqueo->identifier ?? "#{$bloqueo->id}")." del $fecha aún está en curso (estado: {$bloqueo->estado}). Espera su respuesta."]);
             }
             $base = Comprobante::deEmpresa($empresa->id)->where('envio_por_resumen', true)->whereDate('fecha_emision', $fecha);
             if ((clone $base)->where('estado', 'por_enviar')->exists()) {

@@ -23,7 +23,7 @@ class ResumenController extends Controller
     public function store(Request $request): JsonResponse
     {
         $d = $request->validate(['fecha' => ['required', 'date_format:Y-m-d']]);
-        $c = $this->svc->solicitar($this->empresa->get(), $request->user(), $d['fecha']);
+        $c = $this->svc->solicitar($this->empresa->get(), $request->user(), $d['fecha'], permitirHoy: true);
 
         return response()->json(['data' => BajaController::dto($c), 'message' => "Resumen diario del {$d['fecha']} en cola de envío a SUNAT."], 201);
     }

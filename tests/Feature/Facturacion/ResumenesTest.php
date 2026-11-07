@@ -140,7 +140,8 @@ class ResumenesTest extends TestCase
         $hoy = now('America/Lima')->toDateString();
         $ayer = now('America/Lima')->subDay()->toDateString();
 
-        $this->actingAs($this->admin)->postJson('/api/v1/resumenes', ['fecha' => $hoy])->assertStatus(422);
+        $manana = now('America/Lima')->addDay()->toDateString();
+        $this->actingAs($this->admin)->postJson('/api/v1/resumenes', ['fecha' => $manana])->assertStatus(422);
         $b->update(['fecha_emision' => $ayer]);
 
         $this->actingAs($this->admin)->getJson('/api/v1/resumenes/pendientes')->assertOk()
@@ -152,7 +153,7 @@ class ResumenesTest extends TestCase
         $this->assertEquals(['fecha_resumen' => $ayer, 'enviar_automatico' => false], $com->payload); // ejemplo RC-03
         Queue::assertPushed(EnviarComunicacionJob::class);
 
-        // Un solo RC de envío por fecha (H-5)
+        // No se crea otro RC de la fecha mientras el primero está en curso (H-5)
         $this->actingAs($this->admin)->postJson('/api/v1/resumenes', ['fecha' => $ayer])->assertStatus(422);
 
         $doc = fn ($id, $nro, $estado) => ['id' => $id, 'tipo_documento' => '03', 'serie_nro' => $nro, 'estado' => '1', 'total' => 10, 'estado_sunat' => $estado];
@@ -183,6 +184,38 @@ class ResumenesTest extends TestCase
 
         // Una boleta aceptada por resumen ya admite baja (RC de anulación).
         $this->actingAs($this->admin)->postJson('/api/v1/bajas', ['comprobante_ids' => [$b->id], 'motivo' => 'Cliente solicita anulación'])->assertCreated();
+    }
+
+    public function test_el_resumen_de_hoy_se_envia_solo_manualmente(): void
+    {
+        $b = $this->registrada();
+        $hoy = now('America/Lima')->toDateString();
+
+        // El envío automático no lo toca...
+        $this->artisan('sunat:enviar-resumenes')->assertSuccessful();
+        $this->assertSame(0, Comunicacion::withoutGlobalScopes()->count());
+        try {
+            app(ResumenService::class)->solicitar($this->empresa, $this->admin, $hoy);
+            $this->fail('El resumen de hoy no debe crearse sin permitirHoy.');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $this->assertStringContainsString('manualmente', collect($e->errors())->flatten()->first());
+        }
+
+        // ...pero el usuario sí puede enviarlo desde la pantalla.
+        $this->actingAs($this->admin)->postJson('/api/v1/resumenes', ['fecha' => $hoy])->assertCreated();
+        $com = Comunicacion::withoutGlobalScopes()->sole();
+        $this->assertSame([$b->id], $com->items()->pluck('comprobante_id')->all());
+        $this->actingAs($this->admin)->postJson('/api/v1/resumenes', ['fecha' => $hoy])->assertStatus(422); // en curso
+
+        // Aceptado el primero, una boleta emitida después el mismo día puede ir en otro resumen.
+        $com->update(['estado' => 'aceptado']);
+        $b->update(['estado' => 'aceptado']);
+        $otra = $this->vender();
+        $otra->update(['estado' => 'pendiente_resumen', 'api_id' => 777]);
+        $this->actingAs($this->admin)->getJson('/api/v1/resumenes/pendientes')->assertOk()
+            ->assertJsonPath('data.fechas.0.resumen_activo', null)->assertJsonPath('data.fechas.0.registradas', 1);
+        $this->actingAs($this->admin)->postJson('/api/v1/resumenes', ['fecha' => $hoy])->assertCreated();
+        $this->assertSame([$otra->id], Comunicacion::withoutGlobalScopes()->latest('id')->first()->items()->pluck('comprobante_id')->all());
     }
 
     public function test_si_la_api_crea_el_rc_pero_falla_el_envio_el_reintento_no_crea_otro(): void
