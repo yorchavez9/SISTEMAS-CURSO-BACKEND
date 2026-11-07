@@ -99,6 +99,7 @@
   - las cotizaciones se gestionan solo en el sistema, sin la API, y se imprimen como página del navegador;
   - las notas de venta no se implementan: además del defecto, toda venta debe sustentarse con un comprobante electrónico.
   - **Corrección en la API:** usar `CAST(... AS INTEGER)` o una secuencia, y no devolver el mensaje SQL al cliente.
+- **H-14 (limitación de la API, 2026-11-06):** `GET /resumenes/{id}/xml` y `/cdr` devuelven el XML (`application/xml`) y el CDR (`application/zip`) del RC, tanto el de envío como el de anulación. En cambio, `GET /anulaciones/{id}/cdr` de una comunicación de baja (RA) **aceptada** responde 404 `"CDR de la anulación no disponible"`, aunque `/estado` informa código 0. El XML del RA sí se descarga. En el sistema, el botón CDR de una baja RA muestra ese mensaje de la API.
 
 ## 6. Afectaciones del IGV: matriz real (fase G y ejemplos de Postman)
 

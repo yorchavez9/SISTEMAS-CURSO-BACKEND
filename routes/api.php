@@ -103,6 +103,8 @@ Route::prefix('v1')->group(function () {
         Route::get('bajas', [BajaController::class, 'index'])->middleware('empresa:comprobantes.ver');
         Route::post('bajas', [BajaController::class, 'store'])->middleware(['empresa:comprobantes.anular', 'throttle:30,1']);
         Route::post('bajas/{comunicacion}/reintentar', [BajaController::class, 'reintentar'])->middleware('empresa:comprobantes.anular');
+        Route::get('bajas/{comunicacion}/archivos/{tipo}', [BajaController::class, 'archivo'])->whereIn('tipo', ['xml', 'cdr'])
+            ->middleware(['empresa:comprobantes.descargar', 'throttle:60,1']);
 
         // Resumen diario de ENVÍO de boletas (empresas con envio_boletas = resumen)
         Route::get('resumenes/pendientes', [ResumenController::class, 'pendientes'])->middleware('empresa:comprobantes.ver');

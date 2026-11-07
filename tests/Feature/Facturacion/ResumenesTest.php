@@ -218,6 +218,43 @@ class ResumenesTest extends TestCase
         $this->assertSame([$otra->id], Comunicacion::withoutGlobalScopes()->latest('id')->first()->items()->pluck('comprobante_id')->all());
     }
 
+    public function test_descarga_xml_y_cdr_del_resumen_y_muestra_el_ticket(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('local');
+        $com = Comunicacion::create(['empresa_id' => $this->empresa->id, 'tipo' => 'RC', 'accion' => 'envio', 'fecha_documentos' => '2026-11-06',
+            'motivo' => 'Envío de boletas', 'estado' => 'aceptado', 'api_id' => 59, 'identifier' => 'RC-20261106-002', 'ticket' => '1794016558913',
+            'user_id' => $this->admin->id, 'payload' => []]);
+        Http::fake([
+            "{$this->base}/resumenes/59/xml" => Http::response('<?xml version="1.0"?><SummaryDocuments/>', 200, ['Content-Type' => 'application/xml']),
+            "{$this->base}/resumenes/59/cdr" => Http::response("PK\x03\x04cdr", 200, ['Content-Type' => 'application/zip']),
+        ]);
+
+        $this->actingAs($this->admin)->getJson('/api/v1/bajas?accion=envio')->assertOk()
+            ->assertJsonPath('data.0.ticket', '1794016558913')->assertJsonPath('data.0.tiene_archivos', true);
+
+        $xml = $this->actingAs($this->admin)->get("/api/v1/bajas/{$com->id}/archivos/xml")->assertOk();
+        $this->assertStringContainsString('attachment; filename=20161515648-RC-20261106-002.xml', $xml->headers->get('Content-Disposition'));
+        $this->assertStringContainsString('SummaryDocuments', $xml->streamedContent());
+        $cdr = $this->actingAs($this->admin)->get("/api/v1/bajas/{$com->id}/archivos/cdr")->assertOk();
+        $this->assertStringContainsString('R-20161515648-RC-20261106-002.zip', $cdr->headers->get('Content-Disposition'));
+
+        // Ya guardados: la segunda descarga no vuelve a llamar a la API.
+        $this->actingAs($this->admin)->get("/api/v1/bajas/{$com->id}/archivos/cdr")->assertOk();
+        Http::assertSentCount(2);
+        $this->actingAs($this->admin)->get("/api/v1/bajas/{$com->id}/archivos/pdf")->assertNotFound();
+    }
+
+    public function test_cdr_no_disponible_devuelve_404_con_el_mensaje_de_la_api(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('local');
+        $com = Comunicacion::create(['empresa_id' => $this->empresa->id, 'tipo' => 'RA', 'accion' => 'anulacion', 'fecha_documentos' => '2026-11-06',
+            'motivo' => 'Error', 'estado' => 'aceptado', 'api_id' => 43, 'identifier' => 'RA-20261106-003', 'user_id' => $this->admin->id, 'payload' => []]);
+        Http::fake(["{$this->base}/anulaciones/43/cdr" => Http::response(['estado' => 'error', 'mensaje' => 'CDR de la anulación no disponible'], 404)]);
+
+        $this->actingAs($this->admin)->getJson("/api/v1/bajas/{$com->id}/archivos/cdr")
+            ->assertNotFound()->assertJsonPath('message', 'CDR de la anulación no disponible');
+    }
+
     public function test_si_la_api_crea_el_rc_pero_falla_el_envio_el_reintento_no_crea_otro(): void
     {
         $b = $this->registrada();
