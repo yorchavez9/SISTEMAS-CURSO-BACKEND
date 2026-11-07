@@ -56,9 +56,9 @@ class ResumenesTest extends TestCase
         $this->servicio = Producto::create(['empresa_id' => $this->empresa->id, 'codigo' => 'P001', 'descripcion' => 'Producto', 'unidad' => 'ZZ', 'precio_venta' => 10, 'tip_afe_igv' => '10', 'tipo' => 'servicio', 'controla_stock' => false]);
     }
 
-    private function vender(string $tipo = '03'): Comprobante
+    private function vender(string $tipo = '03', array $extra = []): Comprobante
     {
-        $this->actingAs($this->admin)->postJson('/api/v1/ventas', ['idempotency_key' => (string) Str::uuid(), 'tipo_documento' => $tipo,
+        $this->actingAs($this->admin)->postJson('/api/v1/ventas', $extra + ['idempotency_key' => (string) Str::uuid(), 'tipo_documento' => $tipo,
             'serie_id' => $tipo === '01' ? $this->f001->id : $this->b001->id, 'cliente_id' => $this->cliente->id,
             'items' => [['producto_id' => $this->servicio->id, 'cantidad' => 1]]])->assertCreated();
 
@@ -108,6 +108,30 @@ class ResumenesTest extends TestCase
         $this->assertFalse($b->envio_por_resumen);
         $this->assertTrue($b->payload['enviar_automatico']);
         $this->assertArrayNotHasKey('solo_registro', $b->payload);
+    }
+
+    public function test_el_modo_de_envio_se_puede_elegir_en_cada_boleta(): void
+    {
+        // Empresa en modo resumen, pero esta boleta se pide individual.
+        $b = $this->vender('03', ['envio_boleta' => 'individual']);
+        $this->assertFalse($b->envio_por_resumen);
+        $this->assertTrue($b->payload['enviar_automatico']);
+        $this->assertArrayNotHasKey('solo_registro', $b->payload);
+
+        // Empresa en modo individual, pero esta boleta se pide por resumen.
+        $this->empresa->update(['envio_boletas' => 'individual']);
+        $r = $this->vender('03', ['envio_boleta' => 'resumen']);
+        $this->assertTrue($r->envio_por_resumen);
+        $this->assertTrue($r->payload['solo_registro']);
+
+        // En facturas la opción no aplica: siempre se envían una por una.
+        $f = $this->vender('01', ['envio_boleta' => 'resumen']);
+        $this->assertFalse($f->envio_por_resumen);
+        $this->assertArrayNotHasKey('solo_registro', $f->payload);
+
+        $this->actingAs($this->admin)->postJson('/api/v1/ventas', ['idempotency_key' => (string) Str::uuid(), 'tipo_documento' => '03',
+            'envio_boleta' => 'otro', 'serie_id' => $this->b001->id, 'items' => [['producto_id' => $this->servicio->id, 'cantidad' => 1]]])
+            ->assertUnprocessable()->assertJsonValidationErrors('envio_boleta');
     }
 
     public function test_rc_de_envio_completo_con_documento_externo(): void

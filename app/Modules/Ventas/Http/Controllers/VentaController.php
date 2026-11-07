@@ -19,6 +19,8 @@ class VentaController extends Controller
         $data = $request->validate([
             'idempotency_key' => ['required', 'uuid'],
             'tipo_documento' => ['required', 'in:01,03'],
+            // Solo boletas: individual (se envía a SUNAT al emitir) o resumen (va en el resumen diario). Por defecto, el de la empresa.
+            'envio_boleta' => ['nullable', 'in:individual,resumen'],
             'serie_id' => ['required', 'integer'],
             'cliente_id' => ['nullable', 'integer'],
             'cotizacion_id' => ['nullable', 'integer'],

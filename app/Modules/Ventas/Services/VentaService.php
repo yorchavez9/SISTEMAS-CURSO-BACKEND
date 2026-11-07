@@ -138,7 +138,8 @@ class VentaService
             $payload = ComprobantePayloadBuilder::construir($cab, $clienteApi, $items, $cuotas, $doc['descuentos_globales'] ?? []);
             // Boletas en modo resumen: se registran en la API con solo_registro (ejemplo Postman B-06, aceptado)
             // y llegan a SUNAT en el resumen diario (RC de envío).
-            $porResumen = $d['tipo_documento'] === '03' && $empresa->envio_boletas === 'resumen';
+            // El modo se elige por venta; si no se indica, se usa el configurado en la empresa.
+            $porResumen = $d['tipo_documento'] === '03' && ($d['envio_boleta'] ?? $empresa->envio_boletas ?? 'individual') === 'resumen';
             if ($porResumen) {
                 unset($payload['enviar_automatico']);
                 $payload['solo_registro'] = true;
