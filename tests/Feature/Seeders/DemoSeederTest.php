@@ -10,7 +10,6 @@ use App\Models\Producto;
 use App\Models\ProductoPresentacion;
 use App\Models\Stock;
 use App\Models\User;
-use App\Modules\Inventario\Services\InventarioService;
 use Database\Seeders\DatabaseSeeder;
 use Database\Seeders\DemoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -56,16 +55,19 @@ class DemoSeederTest extends TestCase
     {
         $empresa = Empresa::factory()->create(['ruc' => '20161515648']);
         User::factory()->create(['is_superadmin' => true]);
+        // Como en producción tras sincronizar: establecimientos SIN almacenes (se crean al abrir Inventario).
         foreach (['0000', '0001'] as $cod) {
-            $est = Establecimiento::create(['empresa_id' => $empresa->id, 'nombre' => "Local $cod", 'cod_local' => $cod]);
-            app(InventarioService::class)->almacenPrincipal($empresa->id, $est->id);
+            Establecimiento::create(['empresa_id' => $empresa->id, 'nombre' => "Local $cod", 'cod_local' => $cod]);
         }
+        // Producto creado por el usuario antes del seeder: también recibe stock.
+        $propio = Producto::withoutGlobalScopes()->create(['empresa_id' => $empresa->id, 'codigo' => 'P001', 'descripcion' => 'MOUSE', 'unidad' => 'NIU',
+            'precio_venta' => 70, 'costo' => 60, 'tip_afe_igv' => '10', 'controla_stock' => true, 'stock_minimo' => 3]);
 
         $this->seed(DemoSeeder::class);
         $this->seed(DemoSeeder::class); // segunda vez: no duplica
 
         $this->assertSame(9, Categoria::withoutGlobalScopes()->where('empresa_id', $empresa->id)->count());
-        $this->assertSame(28, Producto::withoutGlobalScopes()->where('empresa_id', $empresa->id)->count());
+        $this->assertSame(29, Producto::withoutGlobalScopes()->where('empresa_id', $empresa->id)->count());
         $this->assertSame(4, ProductoPresentacion::count());
         $this->assertSame(5, Cliente::withoutGlobalScopes()->where('empresa_id', $empresa->id)->count());
 
@@ -74,8 +76,10 @@ class DemoSeederTest extends TestCase
         $this->assertTrue((bool) Producto::withoutGlobalScopes()->where('codigo', 'EMP-001')->value('aplica_icbper'));
         $this->assertFalse((bool) Producto::withoutGlobalScopes()->where('codigo', 'SER-001')->value('controla_stock'));
 
-        // 25 bienes con stock en cada uno de los 2 almacenes, sin duplicar en la segunda ejecución.
-        $this->assertSame(50, Stock::withoutGlobalScopes()->where('cantidad', '>', 0)->count());
+        // 26 bienes (25 demo + el propio) con stock en cada uno de los 2 almacenes creados por el seeder, sin duplicar.
+        $this->assertSame(2, \App\Models\Almacen::withoutGlobalScopes()->count());
+        $this->assertSame(52, Stock::withoutGlobalScopes()->where('cantidad', '>', 0)->count());
+        $this->assertSame(['10.0000', '10.0000'], Stock::withoutGlobalScopes()->where('producto_id', $propio->id)->pluck('cantidad')->map(fn ($c) => (string) $c)->all());
         $this->assertSame('8.0000', (string) Stock::withoutGlobalScopes()->where('producto_id', Producto::withoutGlobalScopes()->where('codigo', 'TEC-001')->value('id'))->value('cantidad'));
     }
 }

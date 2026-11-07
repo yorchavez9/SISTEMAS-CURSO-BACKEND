@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\Almacen;
 use App\Models\Categoria;
 use App\Models\Cliente;
 use App\Models\Empresa;
@@ -15,7 +14,8 @@ use Illuminate\Database\Seeder;
 
 /**
  * Datos de DEMOSTRACIÓN para una empresa ya registrada: categorías, productos (gravados, exonerados,
- * con ICBPER y servicios), presentaciones, clientes y stock inicial en cada almacén.
+ * con ICBPER y servicios), presentaciones, clientes y stock inicial en cada almacén para TODOS los bienes
+ * de la empresa (también los que creó el usuario) que aún no tengan existencias.
  *
  *   php artisan db:seed --class=DemoSeeder --force
  *   DEMO_EMPRESA_RUC=20123456789 php artisan db:seed --class=DemoSeeder --force   (si hay varias empresas)
@@ -151,10 +151,12 @@ class DemoSeeder extends Seeder
         }
         $this->command->line('  Clientes: '.count(self::CLIENTES));
 
-        // Stock inicial: entrada en cada almacén activo, solo para productos sin stock en ese almacén.
-        $almacenes = Almacen::withoutGlobalScopes()->where('empresa_id', $empresa->id)->where('activo', true)->get();
+        // Stock inicial en TODOS los almacenes (se crea el "Almacén principal" de cada establecimiento si aún no existe)
+        // para TODOS los bienes de la empresa que controlan stock y no tienen existencias: los de demostración con su
+        // cantidad de referencia y los creados por el usuario con el doble de su stock mínimo (mínimo 10).
+        $almacenes = $inventario->almacenes($empresa);
         if ($almacenes->isEmpty()) {
-            $this->command->warn('  Sin almacenes: sincroniza los establecimientos (Configuración → Establecimientos y series) y vuelve a ejecutar el seeder para cargar el stock.');
+            $this->command->warn('  Sin establecimientos: sincroniza Configuración → Establecimientos y series y vuelve a ejecutar el seeder para cargar el stock.');
 
             return;
         }
@@ -164,22 +166,23 @@ class DemoSeeder extends Seeder
 
             return;
         }
+        $demo = collect($productos)->mapWithKeys(fn ($d) => [$d['modelo']->id => $d]);
+        $bienes = Producto::withoutGlobalScopes()->where('empresa_id', $empresa->id)->where('controla_stock', true)
+            ->where('activo', true)->whereNull('deleted_at')->orderBy('id')->get();
         foreach ($almacenes as $almacen) {
             $items = [];
-            foreach ($productos as $d) {
-                $p = $d['modelo'];
-                if (! $p->controla_stock || $p->trashed() || $d['stock'] <= 0) {
+            foreach ($bienes as $p) {
+                $actual = (float) Stock::withoutGlobalScopes()->where('almacen_id', $almacen->id)->where('producto_id', $p->id)->value('cantidad');
+                if ($actual > 0) {
                     continue;
                 }
-                $actual = (float) Stock::withoutGlobalScopes()->where('almacen_id', $almacen->id)->where('producto_id', $p->id)->value('cantidad');
-                if ($actual <= 0) {
-                    $items[] = ['producto_id' => $p->id, 'cantidad' => $d['stock'], 'costo_unitario' => $d['costo']];
-                }
+                $cantidad = isset($demo[$p->id]) && $demo[$p->id]['stock'] > 0 ? $demo[$p->id]['stock'] : max(10, (float) $p->stock_minimo * 2);
+                $items[] = ['producto_id' => $p->id, 'cantidad' => $cantidad, 'costo_unitario' => (float) $p->costo];
             }
             if ($items) {
                 $inventario->registrar($empresa, $usuario, $almacen, 'entrada', $items, 'INV-DEMO', 'Stock inicial de demostración');
             }
-            $this->command->line("  Stock almacén #{$almacen->id}: ".count($items).' productos con entrada');
+            $this->command->line("  {$almacen->nombre} (#{$almacen->id}): ".count($items).' productos con entrada de stock');
         }
     }
 }
