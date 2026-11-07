@@ -29,6 +29,23 @@ class DemoSeederTest extends TestCase
         $this->seed(DatabaseSeeder::class); // idempotente
     }
 
+    public function test_catalogos_consultados_antes_del_seed_no_quedan_vacios_en_cache(): void
+    {
+        \Illuminate\Support\Facades\Cache::flush();
+        DB::table('sunat_catalogos')->delete();
+        DB::table('tipos_afectacion_igv')->delete();
+        $u = User::factory()->create(['is_superadmin' => true]);
+
+        // Producción recién migrada: se consulta antes de db:seed.
+        $this->actingAs($u)->getJson('/api/v1/catalogos')->assertOk()->assertJsonCount(0, 'data.afectaciones_igv');
+        $this->assertSame([], \App\Modules\Tributos\Calculo\ReglaAfectacion::todas());
+
+        $this->seed(DatabaseSeeder::class);
+        $this->actingAs($u)->getJson('/api/v1/catalogos')->assertOk()
+            ->assertJsonPath('data.afectaciones_igv.0.codigo', '10')->assertJsonFragment(['codigo' => 'NIU']);
+        $this->assertArrayHasKey('10', \App\Modules\Tributos\Calculo\ReglaAfectacion::todas());
+    }
+
     public function test_sin_empresa_no_falla_ni_crea_nada(): void
     {
         $this->seed(DemoSeeder::class);

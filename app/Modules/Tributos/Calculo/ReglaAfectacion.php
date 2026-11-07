@@ -19,8 +19,19 @@ final class ReglaAfectacion
     /** @return array<string, self> */
     public static function todas(): array
     {
-        return Cache::remember('reglas_afectacion:v1', 600, fn () => DB::table('tipos_afectacion_igv')->get()
-            ->mapWithKeys(fn ($r) => [(string) $r->codigo => new self((string) $r->codigo, $r->grupo, (bool) $r->es_gratuito, (bool) $r->calcula_igv, (bool) $r->activo)])
-            ->all());
+        $reglas = Cache::get(self::CACHE_KEY);
+        if (! $reglas) {
+            $reglas = DB::table('tipos_afectacion_igv')->get()
+                ->mapWithKeys(fn ($r) => [(string) $r->codigo => new self((string) $r->codigo, $r->grupo, (bool) $r->es_gratuito, (bool) $r->calcula_igv, (bool) $r->activo)])
+                ->all();
+            // No se guarda en caché una tabla vacía (p. ej. antes de ejecutar db:seed).
+            if ($reglas) {
+                Cache::put(self::CACHE_KEY, $reglas, 600);
+            }
+        }
+
+        return $reglas;
     }
+
+    public const CACHE_KEY = 'reglas_afectacion:v1';
 }

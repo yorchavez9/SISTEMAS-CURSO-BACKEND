@@ -12,7 +12,16 @@ class CatalogoController extends Controller
 {
     public function index(): JsonResponse
     {
-        $data = Cache::remember('catalogos_sunat:v1', 600, function () {
+        $data = Cache::get(self::CACHE_KEY) ?? $this->cargar();
+
+        return response()->json(['data' => $data]);
+    }
+
+    public const CACHE_KEY = 'catalogos_sunat:v1';
+
+    private function cargar(): array
+    {
+        $data = (function () {
             $catalogos = DB::table('sunat_catalogos')->where('activo', true)->orderBy('catalogo')->orderBy('codigo')
                 ->get(['catalogo', 'codigo', 'descripcion', 'validado_api', 'meta'])
                 ->map(fn ($r) => [
@@ -29,8 +38,12 @@ class CatalogoController extends Controller
             ]);
 
             return ['catalogos' => $catalogos, 'afectaciones_igv' => $afectaciones];
-        });
+        })();
+        // No se guarda en caché si aún no se cargaron los catálogos (antes de db:seed): se mostraría vacío 10 minutos.
+        if ($data['catalogos']->isNotEmpty() && $data['afectaciones_igv']->isNotEmpty()) {
+            Cache::put(self::CACHE_KEY, $data, 600);
+        }
 
-        return response()->json(['data' => $data]);
+        return $data;
     }
 }

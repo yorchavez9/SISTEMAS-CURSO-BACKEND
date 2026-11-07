@@ -300,7 +300,7 @@ php artisan up
 | "No se pueden descifrar las credenciales" | Cambió `APP_KEY` | Restaura la `APP_KEY` anterior o vuelve a ingresar las credenciales de cada empresa |
 | `composer install` falla por extensiones | Falta alguna extensión de PHP | Actívala en *Configuración de PHP* (paso 1) |
 | Cambié el `.env` y no se nota | Configuración en caché | `php artisan config:cache` |
-| Sin unidades de medida ni tipos de IGV en los formularios; no se pueden crear productos | No se ejecutó el seeder base | `php artisan db:seed --force` |
+| Sin unidades de medida ni tipos de IGV en los formularios; no se pueden crear productos | No se ejecutó el seeder base (o, en versiones anteriores, quedó en caché la lista vacía) | `php artisan db:seed --force` y `php artisan cache:clear`; luego Ctrl+F5 en el navegador. Para comprobar: `php artisan tinker --execute="echo DB::table('tipos_afectacion_igv')->count();"` debe dar 19 |
 | `DemoSeeder` dice "No hay empresas registradas" | Aún no se registró la empresa | Regístrala en el sistema y vuelve a ejecutarlo |
 | `DemoSeeder` crea productos pero no stock ("Sin almacenes") | Faltan establecimientos | Sincroniza *Establecimientos y series* y vuelve a ejecutarlo (solo agrega lo que falta) |
 

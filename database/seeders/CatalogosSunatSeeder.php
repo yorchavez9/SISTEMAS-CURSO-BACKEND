@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -144,5 +145,9 @@ class CatalogosSunatSeeder extends Seeder
             }
         }
         DB::table('sunat_catalogos')->upsert($rows, ['catalogo', 'codigo'], ['descripcion', 'validado_api', 'meta', 'updated_at']);
+
+        // Que el sistema vea de inmediato los catálogos actualizados.
+        Cache::forget(\App\Modules\Tributos\Http\Controllers\CatalogoController::CACHE_KEY);
+        Cache::forget(\App\Modules\Tributos\Calculo\ReglaAfectacion::CACHE_KEY);
     }
 }
