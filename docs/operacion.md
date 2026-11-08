@@ -95,6 +95,10 @@ Al registrar un cliente, el sistema completa razón social, nombre y dirección 
 - **Probar** consulta el RUC público de SUNAT (20131312955) con el proveedor elegido, antes o después de guardar.
 - Las consultas exitosas se guardan 24 horas en caché para no repetir llamadas.
 
+## Guía de remisión transportista (31)
+
+En **Guías de remisión → Guía de transportista**, para empresas que prestan el servicio de transporte. Se registra el remitente, el destinatario, el documento relacionado (guía remitente, factura, DAM…), el vehículo, los conductores y los bienes. Requiere una serie con prefijo `V`. Consulta de estado, archivos y reintentos funcionan igual que en la guía remitente.
+
 ## Liquidaciones de compra
 
 **Comercial → Liquidaciones de compra** emite el comprobante tipo 04 cuando se compra a una persona sin RUC (DNI o carné de extranjería).

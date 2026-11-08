@@ -155,6 +155,62 @@ class GuiaService
         return $guia;
     }
 
+    /**
+     * Guía de remisión transportista (31): POST /guias-remision con tipo_documento=31 (ejemplos Postman, sección 11).
+     * Emisión, estado, archivos y reintentos son los mismos que los de la guía remitente.
+     */
+    public function crearTransportista(Empresa $empresa, User $user, array $d): GuiaRemision
+    {
+        if ($existente = GuiaRemision::deEmpresa($empresa->id)->where('idempotency_key', $d['idempotency_key'])->first()) {
+            return $existente;
+        }
+        $hoy = Carbon::now('America/Lima')->toDateString();
+        if ($d['fecha_traslado'] < $hoy) {
+            throw ValidationException::withMessages(['fecha_traslado' => 'La fecha de traslado no puede ser anterior a la fecha de emisión (hoy).']);
+        }
+
+        $guia = DB::transaction(function () use ($empresa, $user, $d, $hoy) {
+            $serie = Serie::deEmpresa($empresa->id)->lockForUpdate()->find($d['serie_id']);
+            if (! $serie || ! $serie->activo || $serie->tipo_documento !== '31' || ! $serie->api_serie_id) {
+                throw ValidationException::withMessages(['serie_id' => 'Elige una serie de guía transportista (V…) activa y sincronizada con la API.']);
+            }
+            $serie->correlativo_actual++;
+            $serie->save();
+            $doc = array_filter($d['doc_relacionado'], fn ($v) => $v !== null && $v !== '');
+            $vehiculo = array_filter(['placa' => strtoupper($d['vehiculo']['placa']), 'nro_circulacion' => isset($d['vehiculo']['nro_circulacion']) ? strtoupper($d['vehiculo']['nro_circulacion']) : null], fn ($v) => $v !== null && $v !== '');
+            $payload = array_filter([
+                'tipo_documento' => '31', 'serie' => $serie->serie, 'correlativo' => $serie->correlativo_actual, 'fecha_emision' => $hoy,
+                'remitente' => $d['remitente'], 'destinatario' => $d['destinatario'], 'doc_relacionado' => $doc,
+                'cod_traslado' => $d['cod_traslado'], 'mod_traslado' => '01', 'fecha_traslado' => $d['fecha_traslado'],
+                'peso_total' => (float) $d['peso_total'], 'und_peso_total' => 'KGM', 'num_bultos' => ! empty($d['num_bultos']) ? (int) $d['num_bultos'] : null,
+                'partida_ubigeo' => $d['partida']['ubigeo'], 'partida_direccion' => $d['partida']['direccion'],
+                'llegada_ubigeo' => $d['llegada']['ubigeo'], 'llegada_direccion' => $d['llegada']['direccion'],
+                'vehiculo' => $vehiculo,
+                'conductor' => array_map(fn ($c) => array_merge($c, ['licencia' => strtoupper($c['licencia'])]), array_values($d['conductores'])),
+                'items' => array_map(fn ($i) => ['descripcion' => $i['descripcion'], 'unidad' => $i['unidad'], 'cantidad' => (float) $i['cantidad']], array_values($d['items'])),
+                'enviar_automatico' => true,
+            ], fn ($v) => $v !== null);
+
+            $g = GuiaRemision::create([
+                'empresa_id' => $empresa->id, 'establecimiento_id' => $serie->establecimiento_id, 'serie_id' => $serie->id, 'tipo_documento' => '31',
+                'serie' => $serie->serie, 'correlativo' => $serie->correlativo_actual, 'fecha_emision' => $hoy,
+                'fecha_traslado' => $d['fecha_traslado'], 'cod_traslado' => $d['cod_traslado'], 'mod_traslado' => '01',
+                'peso_total' => $d['peso_total'], 'und_peso_total' => 'KGM', 'num_bultos' => $payload['num_bultos'] ?? null,
+                'destinatario_tipo_doc' => $d['destinatario']['tipo_doc'], 'destinatario_num_doc' => $d['destinatario']['num_doc'], 'destinatario_razon_social' => $d['destinatario']['razon_social'],
+                'partida_ubigeo' => $d['partida']['ubigeo'], 'partida_direccion' => $d['partida']['direccion'],
+                'llegada_ubigeo' => $d['llegada']['ubigeo'], 'llegada_direccion' => $d['llegada']['direccion'],
+                'estado' => 'por_enviar', 'payload' => $payload, 'idempotency_key' => $d['idempotency_key'], 'user_id' => $user->id,
+                'historial' => [['fecha' => now()->toIso8601String(), 'estado' => 'por_enviar', 'detalle' => 'Guía de transportista registrada']],
+            ]);
+            ProcesoSunat::programarGuia($g->id);
+
+            return $g;
+        });
+        $this->auditor->registrar('guia.emitida', $guia, [], ['numero' => $guia->numero(), 'tipo' => '31', 'motivo' => $guia->cod_traslado], $empresa->id);
+
+        return $guia;
+    }
+
     /** Envía la guía. Si ya existe en la API y quedó en error reenviable, usa POST /{id}/enviar (sin nuevo número). */
     public function emitir(GuiaRemision $g): string
     {

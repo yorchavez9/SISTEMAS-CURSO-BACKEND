@@ -29,7 +29,7 @@ class GuiaController extends Controller
     public static function dto(GuiaRemision $g, bool $detalle = false): array
     {
         $out = [
-            'id' => $g->id, 'numero' => $g->numero(), 'fecha_emision' => $g->fecha_emision->toDateString(), 'fecha_traslado' => $g->fecha_traslado->toDateString(),
+            'id' => $g->id, 'tipo_documento' => $g->tipo_documento, 'numero' => $g->numero(), 'fecha_emision' => $g->fecha_emision->toDateString(), 'fecha_traslado' => $g->fecha_traslado->toDateString(),
             'cod_traslado' => $g->cod_traslado, 'motivo' => GuiaRemision::MOTIVOS[$g->cod_traslado] ?? $g->cod_traslado,
             'mod_traslado' => $g->mod_traslado, 'modalidad' => GuiaRemision::MODALIDADES[$g->mod_traslado] ?? $g->mod_traslado,
             'destinatario' => ['tipo_doc' => $g->destinatario_tipo_doc, 'num_doc' => $g->destinatario_num_doc, 'razon_social' => $g->destinatario_razon_social],
@@ -43,7 +43,9 @@ class GuiaController extends Controller
                 'partida' => ['ubigeo' => $g->partida_ubigeo, 'direccion' => $g->partida_direccion],
                 'peso_total' => (float) $g->peso_total, 'und_peso_total' => $g->und_peso_total, 'num_bultos' => $g->num_bultos,
                 'transportista' => $p['transportista'] ?? null, 'vehiculo' => $p['vehiculo'] ?? null,
-                'conductores' => isset($p['conductor']) ? [$p['conductor']] : ($p['conductores'] ?? []),
+                'remitente' => $p['remitente'] ?? null, 'doc_relacionado' => $p['doc_relacionado'] ?? null,
+                // La guía remitente envía un conductor (objeto) o "conductores"; la de transportista, "conductor" como lista.
+                'conductores' => isset($p['conductor']) ? (array_is_list($p['conductor']) ? $p['conductor'] : [$p['conductor']]) : ($p['conductores'] ?? []),
                 'vehiculo_m1l' => in_array('SUNAT_Envio_IndicadorTrasladoVehiculoM1L', $p['indicadores'] ?? [], true),
                 'items' => $p['items'], 'historial' => array_reverse($g->historial ?? []), 'ticket' => $g->ticket,
                 'archivos' => array_keys($g->archivos ?? []), 'usuario' => $g->usuario?->name, 'intentos' => $g->intentos,
@@ -109,6 +111,8 @@ class GuiaController extends Controller
 
         return response()->json(['data' => [
             'series' => $series, 'establecimientos' => $establecimientos,
+            'series_transportista' => Serie::query()->where('tipo_documento', '31')->where('activo', true)->whereNotNull('api_serie_id')->orderByDesc('predeterminada')->orderBy('serie')->get()
+                ->map(fn ($s) => ['id' => $s->id, 'serie' => $s->serie, 'siguiente' => $s->siguienteNumero(), 'predeterminada' => $s->predeterminada]),
             'motivos' => collect(GuiaRemision::MOTIVOS)->map(fn ($l, $c) => ['codigo' => $c, 'label' => $l])->values(),
             'modalidades' => collect(GuiaRemision::MODALIDADES)->map(fn ($l, $c) => ['codigo' => $c, 'label' => $l])->values(),
             'prefill' => $prefill, 'empresa_ruc' => $e->ruc,
@@ -183,6 +187,61 @@ class GuiaController extends Controller
         }
 
         $g = $this->svc->crear($this->empresa->get(), $request->user(), $d);
+
+        return response()->json(['data' => self::dto($g->fresh(['comprobante']), true), 'message' => "Guía {$g->numero()} ".($g->fresh()->ultimo_error ? 'registrada; aún no se pudo enviar (se reintentará).' : 'enviada a SUNAT.')], 201);
+    }
+
+    /** Guía de remisión transportista (31). */
+    public function storeTransportista(Request $request): JsonResponse
+    {
+        $d = $request->validate([
+            'idempotency_key' => ['required', 'uuid'],
+            'serie_id' => ['required', 'integer'],
+            'cod_traslado' => ['required', Rule::in(array_map('strval', array_keys(GuiaRemision::MOTIVOS)))],
+            'fecha_traslado' => ['required', 'date_format:Y-m-d'],
+            'remitente' => ['required', 'array'],
+            'remitente.tipo_doc' => ['required', Rule::in(['6'])],
+            'remitente.num_doc' => ['required', 'string', 'size:11'],
+            'remitente.razon_social' => ['required', 'string', 'max:500'],
+            'destinatario' => ['required', 'array'],
+            'destinatario.tipo_doc' => ['required', Rule::in(['6', '1'])],
+            'destinatario.num_doc' => ['required', 'string', 'max:15'],
+            'destinatario.razon_social' => ['required', 'string', 'max:500'],
+            'doc_relacionado' => ['required', 'array'],
+            'doc_relacionado.tipo_codigo' => ['required', Rule::in(['09', '01', '03', '50', '49', '52'])],
+            'doc_relacionado.numero' => ['required', 'string', 'max:30'],
+            'doc_relacionado.ruc_emisor' => ['nullable', 'string', 'size:11'],
+            'partida.ubigeo' => ['required', 'regex:/^\d{6}$/'],
+            'partida.direccion' => ['required', 'string', 'max:500'],
+            'llegada.ubigeo' => ['required', 'regex:/^\d{6}$/'],
+            'llegada.direccion' => ['required', 'string', 'max:500'],
+            'peso_total' => ['required', 'numeric', 'gt:0'],
+            'num_bultos' => ['nullable', 'integer', 'min:1'],
+            'vehiculo.placa' => ['required', 'string', 'regex:/^[A-Za-z0-9]{6,8}$/'],
+            'vehiculo.nro_circulacion' => ['nullable', 'string', 'max:20'],
+            'conductores' => ['required', 'array', 'min:1', 'max:5'],
+            'conductores.*.tipo_doc' => ['required', Rule::in(['1', '4'])],
+            'conductores.*.num_doc' => ['required', 'string', 'max:15'],
+            'conductores.*.nombres' => ['required', 'string', 'max:250'],
+            'conductores.*.apellidos' => ['required', 'string', 'max:250'],
+            'conductores.*.licencia' => ['required', 'string', 'min:9', 'max:10'],
+            'items' => ['required', 'array', 'min:1', 'max:100'],
+            'items.*.descripcion' => ['required', 'string', 'max:500'],
+            'items.*.unidad' => ['required', 'string', 'max:3'],
+            'items.*.cantidad' => ['required', 'numeric', 'gt:0'],
+        ], [], [
+            'remitente.num_doc' => 'RUC del remitente', 'remitente.razon_social' => 'razón social del remitente', 'destinatario.num_doc' => 'documento del destinatario',
+            'destinatario.razon_social' => 'razón social del destinatario', 'doc_relacionado.numero' => 'documento relacionado', 'partida.ubigeo' => 'ubigeo de partida', 'partida.direccion' => 'dirección de partida',
+            'llegada.ubigeo' => 'ubigeo de llegada', 'llegada.direccion' => 'dirección de llegada', 'peso_total' => 'peso', 'vehiculo.placa' => 'placa',
+            'conductores.*.num_doc' => 'documento del conductor', 'conductores.*.nombres' => 'nombres', 'conductores.*.apellidos' => 'apellidos', 'conductores.*.licencia' => 'licencia',
+            'items.*.descripcion' => 'descripción', 'items.*.cantidad' => 'cantidad',
+        ]);
+        foreach (['remitente' => '6', 'destinatario' => $d['destinatario']['tipo_doc']] as $parte => $tipo) {
+            if ($m = DocumentoIdentidad::error($tipo, $d[$parte]['num_doc'])) {
+                throw ValidationException::withMessages(["$parte.num_doc" => $m]);
+            }
+        }
+        $g = $this->svc->crearTransportista($this->empresa->get(), $request->user(), $d);
 
         return response()->json(['data' => self::dto($g->fresh(['comprobante']), true), 'message' => "Guía {$g->numero()} ".($g->fresh()->ultimo_error ? 'registrada; aún no se pudo enviar (se reintentará).' : 'enviada a SUNAT.')], 201);
     }

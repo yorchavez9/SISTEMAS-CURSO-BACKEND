@@ -164,6 +164,7 @@ Route::prefix('v1')->group(function () {
 
         Route::get('guias/opciones', [GuiaController::class, 'opciones'])->middleware('empresa:guias.emitir');
         Route::get('guias', [GuiaController::class, 'index'])->middleware('empresa:guias.ver');
+        Route::post('guias/transportista', [GuiaController::class, 'storeTransportista'])->middleware(['empresa:guias.emitir', 'throttle:60,1']);
         Route::post('guias', [GuiaController::class, 'store'])->middleware(['empresa:guias.emitir', 'throttle:60,1']);
         Route::get('guias/{guia}', [GuiaController::class, 'show'])->middleware('empresa:guias.ver');
         Route::post('guias/{guia}/reintentar', [GuiaController::class, 'reintentar'])->middleware('empresa:guias.emitir');
