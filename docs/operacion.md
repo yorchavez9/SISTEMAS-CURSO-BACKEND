@@ -95,6 +95,23 @@ Al registrar un cliente, el sistema completa razón social, nombre y dirección 
 - **Probar** consulta el RUC público de SUNAT (20131312955) con el proveedor elegido, antes o después de guardar.
 - Las consultas exitosas se guardan 24 horas en caché para no repetir llamadas.
 
+## Retenciones y percepciones
+
+**Comercial → Retenciones y percepciones** emite el comprobante de **retención (20)**, si la empresa es agente de retención, y el de **percepción (40)**, si es agente de percepción. Ambos se anulan con una **reversión (RR)**.
+
+| | Retención | Percepción |
+|---|---|---|
+| Se emite a | Proveedor con RUC, al pagarle | Cliente, al cobrarle |
+| Régimen y tasa | 01 = 3 % · 02 = 6 % | 01 = 2 % · 02 = 1 % (combustible) · 03 = 0.5 % |
+| Importe | Retenido = total × tasa; neto pagado = total − retenido | Percibido = total × tasa; total cobrado = total + percibido |
+| Archivos | PDF, XML y CDR | XML y CDR (la API no genera PDF de percepciones, H-16) |
+
+- Se relacionan uno o varios comprobantes (factura, boleta o ticket) con su número `SERIE-NÚMERO`, su fecha y su importe total, en soles.
+- El envío es inmediato. Si el número ya lo usó otro sistema con la misma cuenta, se renumera solo.
+- **Revertir** (solo comprobantes aceptados) envía el RR. Cuando SUNAT lo acepta, el comprobante queda **Revertido**.
+- Permisos: `retenciones.ver` para consultar y `retenciones.emitir` para emitir, reenviar y revertir. Los tienen el administrador y el supervisor; el contador solo consulta.
+- Series: se crean en **Establecimientos y series** con prefijo `R` (retención) o `P` (percepción).
+
 ## Series y serie predeterminada
 
 En **Configuración → Establecimientos y series**, cada serie tiene dos interruptores:

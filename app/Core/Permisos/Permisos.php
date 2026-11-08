@@ -21,6 +21,7 @@ final class Permisos
         'comprobantes' => ['label' => 'Comprobantes electrónicos', 'acciones' => ['ver' => 'Ver', 'emitir' => 'Emitir', 'anular' => 'Anular / emitir notas', 'descargar' => 'Descargar XML, CDR y PDF']],
         'cotizaciones' => ['label' => 'Cotizaciones', 'acciones' => ['ver' => 'Ver', 'gestionar' => 'Crear, cambiar estado y convertir en venta']],
         'guias' => ['label' => 'Guías de remisión', 'acciones' => ['ver' => 'Ver', 'emitir' => 'Emitir y reenviar']],
+        'retenciones' => ['label' => 'Retenciones y percepciones', 'acciones' => ['ver' => 'Ver', 'emitir' => 'Emitir, reenviar y revertir']],
         'reportes' => ['label' => 'Reportes', 'acciones' => ['ver' => 'Ver y exportar']],
         'auditoria' => ['label' => 'Auditoría', 'acciones' => ['ver' => 'Ver registro de auditoría']],
     ];
@@ -29,7 +30,7 @@ final class Permisos
         'admin' => ['label' => 'Administrador', 'permisos' => '*'],
         'supervisor' => ['label' => 'Supervisor', 'permisos' => [
             'empresas.ver', 'usuarios.ver', 'configuracion_tributaria.ver',
-            'clientes.*', 'productos.*', 'inventario.*', 'ventas.*', 'caja.*', 'comprobantes.*', 'guias.*', 'cotizaciones.*', 'reportes.ver',
+            'clientes.*', 'productos.*', 'inventario.*', 'ventas.*', 'caja.*', 'comprobantes.*', 'guias.*', 'retenciones.*', 'cotizaciones.*', 'reportes.ver',
         ]],
         'vendedor' => ['label' => 'Vendedor', 'permisos' => [
             'empresas.ver', 'clientes.ver', 'clientes.crear', 'clientes.editar', 'productos.ver', 'inventario.ver',
@@ -37,7 +38,7 @@ final class Permisos
         ]],
         'contador' => ['label' => 'Contador', 'permisos' => [
             'empresas.ver', 'configuracion_tributaria.ver', 'clientes.ver', 'productos.ver', 'inventario.ver',
-            'ventas.ver', 'caja.ver', 'comprobantes.ver', 'comprobantes.descargar', 'guias.ver', 'reportes.ver', 'auditoria.ver',
+            'ventas.ver', 'caja.ver', 'comprobantes.ver', 'comprobantes.descargar', 'guias.ver', 'retenciones.ver', 'reportes.ver', 'auditoria.ver',
         ]],
     ];
 

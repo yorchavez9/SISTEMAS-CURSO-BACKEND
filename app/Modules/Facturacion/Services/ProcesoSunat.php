@@ -4,9 +4,11 @@ namespace App\Modules\Facturacion\Services;
 
 use App\Integrations\SunatApi\Exceptions\SunatApiRateLimitException;
 use App\Models\Comprobante;
+use App\Models\ComprobanteRetencion;
 use App\Models\Comunicacion;
 use App\Models\GuiaRemision;
 use App\Modules\Guias\Services\GuiaService;
+use App\Modules\Retenciones\Services\RetencionService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Throwable;
@@ -35,6 +37,7 @@ class ProcesoSunat
         private readonly BajaService $bajas,
         private readonly ResumenService $resumenes,
         private readonly GuiaService $guias,
+        private readonly RetencionService $retenciones,
     ) {}
 
     /** Ejecuta $tarea cuando se confirme la transacción en curso (o en el acto si no hay ninguna). */
@@ -210,6 +213,56 @@ class ProcesoSunat
         }
     }
 
+    // ---------------------------------------------------------------- retenciones y percepciones
+
+    public function emitirRetencion(ComprobanteRetencion $c): void
+    {
+        $lock = Cache::lock("sunat:emitir:retencion:{$c->id}", 60);
+        if (! $lock->get()) {
+            return;
+        }
+        try {
+            for ($i = 0; $i < 4; $i++) {
+                $c->refresh();
+                if ($c->esFinal() || $c->estado === 'error' || ($c->api_id && $i > 0)) {
+                    return;
+                }
+                if ($this->intentar($c, fn () => $this->retenciones->emitir($c)) !== RetencionService::RESULTADO_RENUMERADO) {
+                    return;
+                }
+            }
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /** Refresca la retención/percepción: la reenvía, consulta su estado o el de su reversión. */
+    public function actualizarRetencion(ComprobanteRetencion $c, bool $forzar = false): void
+    {
+        if (! Cache::add("sunat:ver:retencion:{$c->id}", 1, self::PAUSA) && ! $forzar) {
+            return;
+        }
+        if ($c->reversion_estado === 'enviado') {
+            $this->intentar($c, fn () => $this->retenciones->consultarReversion($c), registrarError: false);
+
+            return;
+        }
+        if ($c->esFinal() || $c->estado === 'error') {
+            return;
+        }
+        if (! $c->api_id) {
+            if ($c->intentos >= self::MAX_INTENTOS) {
+                $c->cambiarEstado('error', 'No se pudo enviar tras varios intentos: '.($c->ultimo_error ?? 'sin respuesta de la API'));
+
+                return;
+            }
+            $this->emitirRetencion($c);
+
+            return;
+        }
+        $this->intentar($c, fn () => $this->retenciones->consultar($c));
+    }
+
     // ---------------------------------------------------------------- pendientes de una empresa
 
     /**
@@ -228,6 +281,9 @@ class ProcesoSunat
             ->orderBy('updated_at')->limit($max)->get()->each(fn ($c) => $this->actualizarComunicacion($c));
         GuiaRemision::deEmpresa($empresaId)->whereIn('estado', ['por_enviar', 'enviado'])->where('updated_at', '<', $hace)
             ->orderBy('updated_at')->limit($max)->get()->each(fn ($g) => $this->actualizarGuia($g));
+        ComprobanteRetencion::deEmpresa($empresaId)->where('updated_at', '<', $hace)
+            ->where(fn ($q) => $q->whereIn('estado', ['por_enviar', 'enviado'])->orWhere('reversion_estado', 'enviado'))
+            ->orderBy('updated_at')->limit($max)->get()->each(fn ($c) => $this->actualizarRetencion($c));
 
         if ($conArchivos) {
             // Respaldo local de XML/CDR/PDF de lo ya aceptado (lo que nadie descargó todavía).
@@ -244,7 +300,7 @@ class ProcesoSunat
      * Ejecuta una llamada a la API sin dejar que su fallo interrumpa al usuario: límite de solicitudes,
      * conexión caída o credenciales faltantes quedan en `ultimo_error` y se reintentan al volver a consultar.
      */
-    private function intentar(Comprobante|Comunicacion|GuiaRemision $doc, callable $llamada, bool $registrarError = true): mixed
+    private function intentar(Comprobante|Comunicacion|GuiaRemision|ComprobanteRetencion $doc, callable $llamada, bool $registrarError = true): mixed
     {
         try {
             return $llamada();

@@ -11,6 +11,7 @@ use App\Modules\Facturacion\Http\Controllers\ComprobanteController;
 use App\Modules\Facturacion\Http\Controllers\BajaController;
 use App\Modules\Facturacion\Http\Controllers\ResumenController;
 use App\Modules\Guias\Http\Controllers\GuiaController;
+use App\Modules\Retenciones\Http\Controllers\RetencionController;
 use App\Modules\Auditoria\Http\Controllers\AuditoriaController;
 use App\Modules\Cotizaciones\Http\Controllers\CotizacionController;
 use App\Modules\Facturacion\Http\Controllers\NotaController;
@@ -135,6 +136,16 @@ Route::prefix('v1')->group(function () {
         Route::get('auditoria/filtros', [AuditoriaController::class, 'filtros'])->middleware('empresa:auditoria.ver');
 
         // Guías de remisión remitente (09)
+        // Retenciones (20) y percepciones (40), con su reversión (RR)
+        Route::get('retenciones/opciones', [RetencionController::class, 'opciones'])->middleware('empresa:retenciones.emitir');
+        Route::get('retenciones', [RetencionController::class, 'index'])->middleware('empresa:retenciones.ver');
+        Route::post('retenciones', [RetencionController::class, 'store'])->middleware(['empresa:retenciones.emitir', 'throttle:60,1']);
+        Route::get('retenciones/{retencion}', [RetencionController::class, 'show'])->middleware('empresa:retenciones.ver');
+        Route::post('retenciones/{retencion}/reintentar', [RetencionController::class, 'reintentar'])->middleware('empresa:retenciones.emitir');
+        Route::post('retenciones/{retencion}/revertir', [RetencionController::class, 'revertir'])->middleware(['empresa:retenciones.emitir', 'throttle:30,1']);
+        Route::get('retenciones/{retencion}/archivos/{tipo}', [RetencionController::class, 'archivo'])->whereIn('tipo', ['xml', 'cdr', 'pdf'])
+            ->middleware(['empresa:retenciones.ver', 'throttle:60,1']);
+
         Route::get('guias/opciones', [GuiaController::class, 'opciones'])->middleware('empresa:guias.emitir');
         Route::get('guias', [GuiaController::class, 'index'])->middleware('empresa:guias.ver');
         Route::post('guias', [GuiaController::class, 'store'])->middleware(['empresa:guias.emitir', 'throttle:60,1']);
