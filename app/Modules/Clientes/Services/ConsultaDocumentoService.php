@@ -81,7 +81,7 @@ class ConsultaDocumentoService
             return [null, 'No se pudo conectar con Decolecta.'];
         }
         if ($res->status() === 401 || $res->status() === 403) {
-            return [null, 'Decolecta rechazó el token (revísalo en Configuración → Credenciales API).'];
+            return [null, 'Decolecta rechazó el token (revísalo en Configuración → Conexión API).'];
         }
         $j = $res->json();
         if (! $res->successful() || ! is_array($j) || isset($j['error'])) {

@@ -56,7 +56,7 @@ php artisan schedule:work                          # otra terminal (opcional): s
 
 Luego levanta el [frontend](https://github.com/yorchavez9/SISTEMA-CURSO-FRONTEND) (`npm install && npm run dev`, puerto 5174) y abre `http://localhost:5174`.
 
-Al abrir el sistema por primera vez se pide registrar el superadministrador. Después: registrar la empresa, ingresar las credenciales de la API en **Configuración → Credenciales API** y sincronizar establecimientos y series.
+Al abrir el sistema por primera vez se pide registrar el superadministrador. Después: registrar la empresa, ingresar las credenciales de la API en **Configuración → Conexión API** y sincronizar establecimientos y series.
 
 > Las credenciales de la API **nunca** van en `.env`: se ingresan desde el sistema y se guardan cifradas con `APP_KEY`.
 

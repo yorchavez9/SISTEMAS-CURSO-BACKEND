@@ -49,7 +49,7 @@ class SunatCapturaCommand extends Command
             }
             $cred = $empresa->credencialApi('pruebas');
             if (! $cred) {
-                $this->error("La empresa {$empresa->ruc} no tiene credenciales de PRUEBAS. Regístralas en Configuración → Credenciales API.");
+                $this->error("La empresa {$empresa->ruc} no tiene credenciales de PRUEBAS. Regístralas en Configuración → Conexión API.");
 
                 return self::FAILURE;
             }

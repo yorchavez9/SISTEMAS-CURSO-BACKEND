@@ -88,7 +88,7 @@ class ConsultaDocumentosTest extends TestCase
             ->assertJsonPath('data.fuente', 'local (respaldo)')->assertJsonPath('data.cliente.razon_social', 'SUNAT');
 
         $this->actingAs($this->admin)->postJson("/api/v1/empresas/{$this->empresa->id}/consulta-documentos/probar", ['proveedor' => 'decolecta'])
-            ->assertOk()->assertJsonPath('data.ok', false)->assertJsonPath('data.mensaje', 'No se pudo consultar: Decolecta rechazó el token (revísalo en Configuración → Credenciales API).');
+            ->assertOk()->assertJsonPath('data.ok', false)->assertJsonPath('data.mensaje', 'No se pudo consultar: Decolecta rechazó el token (revísalo en Configuración → Conexión API).');
     }
 
     public function test_validaciones_y_permisos(): void

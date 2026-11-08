@@ -68,7 +68,7 @@ Al registrar una venta se abre el detalle del comprobante con el botón **Imprim
 
 ## Perfil de facturación (logo, certificado, mensajes del PDF)
 
-**Configuración → Perfil de facturación** edita la cuenta de la empresa en la API de facturación (la del entorno activo). Lo que se guarda ahí aparece en el XML y en los PDF de los comprobantes nuevos:
+**Configuración → Datos de la empresa** edita la cuenta de la empresa en la API de facturación (la del entorno activo). Lo que se guarda ahí aparece en el XML y en los PDF de los comprobantes nuevos:
 
 | Pestaña | Qué se configura |
 |---|---|
@@ -84,7 +84,7 @@ Al registrar una venta se abre el detalle del comprobante con el botón **Imprim
 
 ## Consulta de RUC y DNI
 
-Al registrar un cliente, el sistema completa razón social, nombre y dirección consultando SUNAT (RUC) o RENIEC (DNI). El proveedor se elige en **Configuración → Credenciales API → Consulta de RUC y DNI**:
+Al registrar un cliente, el sistema completa razón social, nombre y dirección consultando SUNAT (RUC) o RENIEC (DNI). El proveedor se elige en **Configuración → Conexión API → Consulta de RUC y DNI**:
 
 | Proveedor | Token | Cómo funciona |
 |---|---|---|
@@ -110,11 +110,11 @@ Al registrar un cliente, el sistema completa razón social, nombre y dirección 
 - El envío es inmediato. Si el número ya lo usó otro sistema con la misma cuenta, se renumera solo.
 - **Revertir** (solo comprobantes aceptados) envía el RR. Cuando SUNAT lo acepta, el comprobante queda **Revertido**.
 - Permisos: `retenciones.ver` para consultar y `retenciones.emitir` para emitir, reenviar y revertir. Los tienen el administrador y el supervisor; el contador solo consulta.
-- Series: se crean en **Establecimientos y series** con prefijo `R` (retención) o `P` (percepción).
+- Series: se crean en **Locales y series** con prefijo `R` (retención) o `P` (percepción).
 
 ## Series y serie predeterminada
 
-En **Configuración → Establecimientos y series**, cada serie tiene dos interruptores:
+En **Configuración → Locales y series**, cada serie tiene dos interruptores:
 
 - **Activa:** se refleja en la API. Si otro sistema usa la misma cuenta, también deja de poder usar esa serie.
 - **Predeterminada:** es la serie que se preselecciona al emitir. Hay una por tipo de comprobante; en notas, una para facturas (F) y otra para boletas (B). Es una preferencia **solo de este sistema** y no cambia nada en la API.

@@ -162,7 +162,7 @@ class DemoSeeder extends Seeder
         // cantidad de referencia y los creados por el usuario con el doble de su stock mínimo (mínimo 10).
         $almacenes = $inventario->almacenes($empresa);
         if ($almacenes->isEmpty()) {
-            $this->command->warn('  Sin establecimientos: sincroniza Configuración → Establecimientos y series y vuelve a ejecutar el seeder para cargar el stock.');
+            $this->command->warn('  Sin establecimientos: sincroniza Configuración → Locales y series y vuelve a ejecutar el seeder para cargar el stock.');
 
             return;
         }

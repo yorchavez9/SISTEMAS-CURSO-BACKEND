@@ -159,7 +159,7 @@ cd ../backend && php artisan up
 
 ## 10. Paso de pruebas (beta) a producción
 
-1. En **Configuración → Credenciales API**, registra las credenciales del entorno **producción** y pulsa **Probar conexión**. El sistema comprueba que la API responda con entorno `production`.
+1. En **Configuración → Conexión API**, registra las credenciales del entorno **producción** y pulsa **Probar conexión**. El sistema comprueba que la API responda con entorno `production`.
 2. Cambia el **entorno activo** a producción en esa misma pantalla. El sistema no lo permite sin credenciales de producción verificadas. La barra superior cambia de "Entorno de pruebas" a "Producción".
 3. Sincroniza **establecimientos y series**: los correlativos de producción son independientes de los de beta.
 4. Emite un comprobante de bajo monto y verifica en el detalle que SUNAT lo aceptó y que se descargaron XML, CDR y PDF.
