@@ -26,6 +26,7 @@ class EmpresaResource extends JsonResource
             'telefono' => $this->telefono,
             'entorno_activo' => $this->entorno_activo,
             'activo' => $this->activo,
+            'eliminada_at' => $this->deleted_at?->toIso8601String(),
             'permitir_stock_negativo' => (bool) $this->permitir_stock_negativo,
             'envio_boletas' => $this->envio_boletas ?? 'individual',
             'mis_roles' => $user ? ($user->is_superadmin ? ['superadmin'] : $user->rolesEn($this->resource)) : [],

@@ -22,6 +22,17 @@ class EmpresaPolicy
         return $user->activo && $user->is_superadmin;
     }
 
+    /** Eliminar (lógicamente) y restaurar: solo el superadministrador. */
+    public function delete(User $user, Empresa $empresa): bool
+    {
+        return $user->activo && $user->is_superadmin;
+    }
+
+    public function restore(User $user, Empresa $empresa): bool
+    {
+        return $user->activo && $user->is_superadmin;
+    }
+
     public function update(User $user, Empresa $empresa): bool
     {
         return $user->puede($empresa, 'empresas.editar');

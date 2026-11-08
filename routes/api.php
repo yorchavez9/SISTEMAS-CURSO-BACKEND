@@ -38,7 +38,8 @@ Route::prefix('v1')->group(function () {
         Route::post('auth/logout', [AuthController::class, 'logout']);
         Route::get('auth/me', [AuthController::class, 'me']);
 
-        Route::apiResource('empresas', EmpresaController::class)->except('destroy');
+        Route::apiResource('empresas', EmpresaController::class);
+        Route::post('empresas/{empresa}/restaurar', [EmpresaController::class, 'restore'])->withTrashed();
 
         $entornos = ['pruebas', 'produccion'];
         Route::prefix('empresas/{empresa}/credenciales-api')->group(function () use ($entornos) {
