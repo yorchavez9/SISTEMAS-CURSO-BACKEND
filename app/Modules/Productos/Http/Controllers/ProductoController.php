@@ -9,8 +9,10 @@ use App\Integrations\SunatApi\Exceptions\CredencialesNoConfiguradasException;
 use App\Integrations\SunatApi\Exceptions\SunatApiConnectionException;
 use App\Integrations\SunatApi\Exceptions\SunatApiRateLimitException;
 use App\Integrations\SunatApi\SunatApiClientFactory;
+use App\Models\Almacen;
 use App\Models\Categoria;
 use App\Models\Producto;
+use App\Modules\Inventario\Services\InventarioService;
 use App\Modules\Productos\Services\ImagenProductoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -45,12 +47,28 @@ class ProductoController extends Controller
         return response()->json(['data' => $this->dto($producto->load(['categoria:id,nombre', 'presentaciones']))]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(Request $request, InventarioService $inventario): JsonResponse
     {
         [$data, $pres] = $this->validar($request);
-        $producto = DB::transaction(function () use ($data, $pres) {
+        $inicial = $request->validate([
+            'stock_inicial' => ['nullable', 'numeric', 'gt:0', 'max:99999999'],
+            'almacen_id' => ['required_with:stock_inicial', 'nullable', 'integer', Rule::exists('almacenes', 'id')->where('empresa_id', $this->empresa->id())->where('activo', true)],
+        ], [], ['stock_inicial' => 'stock inicial', 'almacen_id' => 'almacén']);
+        $cantidad = $inicial['stock_inicial'] ?? null;
+        if ($cantidad !== null) {
+            if ($data['tipo'] !== 'bien' || ! ($data['controla_stock'] ?? true)) {
+                throw ValidationException::withMessages(['stock_inicial' => 'Este producto no controla stock.']);
+            }
+            abort_unless($request->user()->puede($this->empresa->get(), 'inventario.movimientos'), 403, 'No tienes permiso para registrar stock.');
+        }
+        // En una sola transacción: si la entrada de stock falla, tampoco se crea el producto.
+        $producto = DB::transaction(function () use ($data, $pres, $request, $inventario, $inicial, $cantidad) {
             $p = Producto::create($data);
             $p->presentaciones()->createMany($pres ?? []);
+            if ($cantidad !== null) {
+                $inventario->registrar($this->empresa->get(), $request->user(), Almacen::query()->findOrFail($inicial['almacen_id']), 'entrada',
+                    [['producto_id' => $p->id, 'cantidad' => $cantidad, 'costo_unitario' => (float) ($data['costo'] ?? 0)]], 'STOCK-INICIAL', 'Stock inicial del producto');
+            }
 
             return $p;
         });

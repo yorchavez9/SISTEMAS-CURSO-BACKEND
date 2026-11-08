@@ -96,4 +96,20 @@ class ImagenesProductosTest extends TestCase
         $this->artisan('productos:imagenes')->expectsOutput('Imágenes generadas o actualizadas: 0')->assertSuccessful();
         $this->assertNotNull(Producto::withoutGlobalScopes()->where('codigo', 'P1')->value('imagen'));
     }
+
+    public function test_stock_inicial_al_crear_el_producto(): void
+    {
+        $est = \App\Models\Establecimiento::create(['empresa_id' => $this->empresa->id, 'nombre' => 'P', 'cod_local' => '0001']);
+        $alm = app(\App\Modules\Inventario\Services\InventarioService::class)->almacenPrincipal($this->empresa->id, $est->id);
+
+        $p = $this->crear(['costo' => 1.5, 'stock_inicial' => 40, 'almacen_id' => $alm->id]);
+        $s = \App\Models\Stock::withoutGlobalScopes()->where('producto_id', $p['id'])->where('almacen_id', $alm->id)->sole();
+        $this->assertSame('40.0000', (string) $s->cantidad);
+
+        // Sin almacén, o en un servicio, se rechaza y no se crea nada.
+        $base = ['tipo' => 'bien', 'descripcion' => 'X PRODUCTO', 'unidad' => 'NIU', 'precio_venta' => 2, 'tip_afe_igv' => '10'];
+        $this->actingAs($this->admin)->postJson('/api/v1/productos', $base + ['codigo' => 'B1', 'stock_inicial' => 5])->assertUnprocessable()->assertJsonValidationErrors('almacen_id');
+        $this->actingAs($this->admin)->postJson('/api/v1/productos', ['tipo' => 'servicio', 'codigo' => 'S1', 'controla_stock' => false] + $base + ['stock_inicial' => 5, 'almacen_id' => $alm->id])->assertUnprocessable()->assertJsonValidationErrors('stock_inicial');
+        $this->assertSame(0, Producto::withoutGlobalScopes()->whereIn('codigo', ['B1', 'S1'])->count());
+    }
 }
