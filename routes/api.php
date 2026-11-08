@@ -11,6 +11,7 @@ use App\Modules\Facturacion\Http\Controllers\ComprobanteController;
 use App\Modules\Facturacion\Http\Controllers\BajaController;
 use App\Modules\Facturacion\Http\Controllers\ResumenController;
 use App\Modules\Guias\Http\Controllers\GuiaController;
+use App\Modules\Liquidaciones\Http\Controllers\LiquidacionController;
 use App\Modules\Retenciones\Http\Controllers\RetencionController;
 use App\Modules\Auditoria\Http\Controllers\AuditoriaController;
 use App\Modules\Cotizaciones\Http\Controllers\CotizacionController;
@@ -137,6 +138,20 @@ Route::prefix('v1')->group(function () {
         Route::get('auditoria/filtros', [AuditoriaController::class, 'filtros'])->middleware('empresa:auditoria.ver');
 
         // Guías de remisión remitente (09)
+        // Liquidaciones de compra (04)
+        Route::get('liquidaciones/opciones', [LiquidacionController::class, 'opciones'])->middleware('empresa:liquidaciones.emitir');
+        Route::get('liquidaciones/reporte-retenciones', [LiquidacionController::class, 'reporte'])->middleware('empresa:liquidaciones.ver');
+        Route::get('liquidaciones', [LiquidacionController::class, 'index'])->middleware('empresa:liquidaciones.ver');
+        Route::post('liquidaciones', [LiquidacionController::class, 'store'])->middleware(['empresa:liquidaciones.emitir', 'throttle:60,1']);
+        Route::get('liquidaciones/{liquidacion}', [LiquidacionController::class, 'show'])->middleware('empresa:liquidaciones.ver');
+        Route::post('liquidaciones/{liquidacion}/reintentar', [LiquidacionController::class, 'reintentar'])->middleware('empresa:liquidaciones.emitir');
+        Route::post('liquidaciones/{liquidacion}/revertir', [LiquidacionController::class, 'revertir'])->middleware(['empresa:liquidaciones.emitir', 'throttle:30,1']);
+        Route::get('liquidaciones/{liquidacion}/pagos', [LiquidacionController::class, 'pagos'])->middleware('empresa:liquidaciones.ver');
+        Route::post('liquidaciones/{liquidacion}/pagos', [LiquidacionController::class, 'registrarPago'])->middleware('empresa:liquidaciones.emitir');
+        Route::delete('liquidaciones/{liquidacion}/pagos/{pago}', [LiquidacionController::class, 'eliminarPago'])->whereNumber('pago')->middleware('empresa:liquidaciones.emitir');
+        Route::get('liquidaciones/{liquidacion}/archivos/{tipo}', [LiquidacionController::class, 'archivo'])->whereIn('tipo', ['xml', 'cdr', 'pdf'])
+            ->middleware(['empresa:liquidaciones.ver', 'throttle:60,1']);
+
         // Retenciones (20) y percepciones (40), con su reversión (RR)
         Route::get('retenciones/opciones', [RetencionController::class, 'opciones'])->middleware('empresa:retenciones.emitir');
         Route::get('retenciones', [RetencionController::class, 'index'])->middleware('empresa:retenciones.ver');

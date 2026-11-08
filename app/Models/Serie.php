@@ -15,12 +15,12 @@ class Serie extends Model
     /** Catálogo 01 ↔ nombre de tipo que usa la API en POST /series. */
     public const TIPOS_API = [
         '01' => 'factura', '03' => 'boleta', '07' => 'nota_credito', '08' => 'nota_debito',
-        '09' => 'guia_remision', '31' => 'guia_transportista', '20' => 'retencion', '40' => 'percepcion',
+        '09' => 'guia_remision', '31' => 'guia_transportista', '20' => 'retencion', '40' => 'percepcion', '04' => 'liquidacion_compra',
     ];
 
     /** Prefijo exigido por SUNAT para cada tipo (las notas usan F o B según el documento que modifican). */
     public const PREFIJOS = [
-        '01' => ['F'], '03' => ['B'], '07' => ['F', 'B'], '08' => ['F', 'B'], '09' => ['T'], '31' => ['V'], '20' => ['R'], '40' => ['P'],
+        '01' => ['F'], '03' => ['B'], '07' => ['F', 'B'], '08' => ['F', 'B'], '09' => ['T'], '31' => ['V'], '20' => ['R'], '40' => ['P'], '04' => ['L'],
     ];
 
     protected $fillable = [

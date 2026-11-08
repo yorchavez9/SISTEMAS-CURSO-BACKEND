@@ -95,6 +95,17 @@ Al registrar un cliente, el sistema completa razón social, nombre y dirección 
 - **Probar** consulta el RUC público de SUNAT (20131312955) con el proveedor elegido, antes o después de guardar.
 - Las consultas exitosas se guardan 24 horas en caché para no repetir llamadas.
 
+## Liquidaciones de compra
+
+**Comercial → Liquidaciones de compra** emite el comprobante tipo 04 cuando se compra a una persona sin RUC (DNI o carné de extranjería).
+
+- Requiere una serie con prefijo `L` (**Configuración → Locales y series**).
+- Se registra el vendedor, el lugar de la operación y los bienes. Los importes definitivos (IGV retenido, renta y neto a pagar) los calcula la API.
+- En el detalle se registran y eliminan los **pagos al vendedor**, y se descargan PDF, XML y CDR.
+- **Revertir** solo procede si está aceptada, sin pagos y dentro del plazo (la API valida y muestra el motivo si no se cumple).
+- La pestaña **Retenciones del mes** resume IGV y renta retenidos, para el Formulario 617.
+- Permisos: `liquidaciones.ver` y `liquidaciones.emitir`. Los tienen el administrador y el supervisor; el contador solo consulta.
+
 ## Retenciones y percepciones
 
 **Comercial → Retenciones y percepciones** emite el comprobante de **retención (20)**, si la empresa es agente de retención, y el de **percepción (40)**, si es agente de percepción. Ambos se anulan con una **reversión (RR)**.

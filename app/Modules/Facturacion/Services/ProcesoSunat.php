@@ -7,7 +7,9 @@ use App\Models\Comprobante;
 use App\Models\ComprobanteRetencion;
 use App\Models\Comunicacion;
 use App\Models\GuiaRemision;
+use App\Models\LiquidacionCompra;
 use App\Modules\Guias\Services\GuiaService;
+use App\Modules\Liquidaciones\Services\LiquidacionService;
 use App\Modules\Retenciones\Services\RetencionService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -38,6 +40,7 @@ class ProcesoSunat
         private readonly ResumenService $resumenes,
         private readonly GuiaService $guias,
         private readonly RetencionService $retenciones,
+        private readonly LiquidacionService $liquidaciones,
     ) {}
 
     /** Ejecuta $tarea cuando se confirme la transacción en curso (o en el acto si no hay ninguna). */
@@ -263,6 +266,55 @@ class ProcesoSunat
         $this->intentar($c, fn () => $this->retenciones->consultar($c));
     }
 
+    // ---------------------------------------------------------------- liquidaciones de compra
+
+    public function emitirLiquidacion(LiquidacionCompra $c): void
+    {
+        $lock = Cache::lock("sunat:emitir:liquidacion:{$c->id}", 60);
+        if (! $lock->get()) {
+            return;
+        }
+        try {
+            for ($i = 0; $i < 4; $i++) {
+                $c->refresh();
+                if ($c->esFinal() || $c->estado === 'error' || ($c->api_id && $i > 0)) {
+                    return;
+                }
+                if ($this->intentar($c, fn () => $this->liquidaciones->emitir($c)) !== LiquidacionService::RESULTADO_RENUMERADO) {
+                    return;
+                }
+            }
+        } finally {
+            $lock->release();
+        }
+    }
+
+    public function actualizarLiquidacion(LiquidacionCompra $c, bool $forzar = false): void
+    {
+        if (! Cache::add("sunat:ver:liquidacion:{$c->id}", 1, self::PAUSA) && ! $forzar) {
+            return;
+        }
+        if ($c->reversion_estado === 'enviado') {
+            $this->intentar($c, fn () => $this->liquidaciones->consultarReversion($c), registrarError: false);
+
+            return;
+        }
+        if ($c->esFinal() || $c->estado === 'error') {
+            return;
+        }
+        if (! $c->api_id) {
+            if ($c->intentos >= self::MAX_INTENTOS) {
+                $c->cambiarEstado('error', 'No se pudo enviar tras varios intentos: '.($c->ultimo_error ?? 'sin respuesta de la API'));
+
+                return;
+            }
+            $this->emitirLiquidacion($c);
+
+            return;
+        }
+        $this->intentar($c, fn () => $this->liquidaciones->consultar($c));
+    }
+
     // ---------------------------------------------------------------- pendientes de una empresa
 
     /**
@@ -284,6 +336,9 @@ class ProcesoSunat
         ComprobanteRetencion::deEmpresa($empresaId)->where('updated_at', '<', $hace)
             ->where(fn ($q) => $q->whereIn('estado', ['por_enviar', 'enviado'])->orWhere('reversion_estado', 'enviado'))
             ->orderBy('updated_at')->limit($max)->get()->each(fn ($c) => $this->actualizarRetencion($c));
+        LiquidacionCompra::deEmpresa($empresaId)->where('updated_at', '<', $hace)
+            ->where(fn ($q) => $q->whereIn('estado', ['por_enviar', 'enviado'])->orWhere('reversion_estado', 'enviado'))
+            ->orderBy('updated_at')->limit($max)->get()->each(fn ($c) => $this->actualizarLiquidacion($c));
 
         if ($conArchivos) {
             // Respaldo local de XML/CDR/PDF de lo ya aceptado (lo que nadie descargó todavía).
@@ -300,7 +355,7 @@ class ProcesoSunat
      * Ejecuta una llamada a la API sin dejar que su fallo interrumpa al usuario: límite de solicitudes,
      * conexión caída o credenciales faltantes quedan en `ultimo_error` y se reintentan al volver a consultar.
      */
-    private function intentar(Comprobante|Comunicacion|GuiaRemision|ComprobanteRetencion $doc, callable $llamada, bool $registrarError = true): mixed
+    private function intentar(Comprobante|Comunicacion|GuiaRemision|ComprobanteRetencion|LiquidacionCompra $doc, callable $llamada, bool $registrarError = true): mixed
     {
         try {
             return $llamada();
