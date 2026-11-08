@@ -66,6 +66,22 @@ Al registrar una venta se abre el detalle del comprobante con el botón **Imprim
 - El PDF lo genera la API en cuanto registra el comprobante, así que se puede entregar al cliente mientras SUNAT responde. También se pueden imprimir las boletas pendientes de resumen.
 - No se imprimen comprobantes rechazados ni con error.
 
+## Perfil de facturación (logo, certificado, mensajes del PDF)
+
+**Configuración → Perfil de facturación** edita la cuenta de la empresa en la API de facturación (la del entorno activo). Lo que se guarda ahí aparece en el XML y en los PDF de los comprobantes nuevos:
+
+| Pestaña | Qué se configura |
+|---|---|
+| Datos | Razón social, nombre comercial, dirección fiscal, ubigeo, hasta 5 teléfonos y 5 correos. También actualiza los datos locales de la empresa |
+| Logo y PDF | Logo (PNG/JPG hasta 2 MB), mensaje de agradecimiento, mensaje promocional, hasta 5 cuentas bancarias (banco, tipo, moneda, número, CCI, titular) y 5 billeteras (Yape, Plin, Tunki u otra) |
+| Certificado | Reemplazo del certificado digital (.pfx/.p12) con su contraseña, p. ej. al renovarlo cada año |
+| Clave SOL y GRE | Usuario y Clave SOL; client_id y client_secret de la plataforma de guías (GRE). Vacío = conservar el actual |
+| Régimen | General, MYPE, RER o Nuevo RUS (con categoría) y tasa de IGV manual. El cálculo del sistema toma la nueva tasa al guardar |
+
+- Requiere el permiso **empresas.editar** para guardar; con **empresas.ver** se consulta en modo lectura.
+- El certificado, su contraseña, la Clave SOL y el client_secret se envían directo a la API: **no se guardan en el sistema**, no se muestran y en el historial de llamadas figuran como `***`.
+- Si otro sistema usa la misma cuenta de la API, verá los mismos cambios.
+
 ## Series y serie predeterminada
 
 En **Configuración → Establecimientos y series**, cada serie tiene dos interruptores:

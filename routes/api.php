@@ -19,6 +19,7 @@ use App\Modules\Ventas\Http\Controllers\PreviewController;
 use App\Modules\Ventas\Http\Controllers\VentaController;
 use App\Modules\Empresas\Http\Controllers\CredencialApiController;
 use App\Modules\Empresas\Http\Controllers\EmpresaController;
+use App\Modules\Empresas\Http\Controllers\PerfilApiController;
 use App\Modules\Empresas\Http\Controllers\EstablecimientoSerieController;
 use App\Modules\Tributos\Http\Controllers\CatalogoController;
 use App\Modules\Usuarios\Http\Controllers\UsuarioEmpresaController;
@@ -46,6 +47,11 @@ Route::prefix('v1')->group(function () {
         });
 
         Route::get('roles', [UsuarioEmpresaController::class, 'roles']);
+        // Perfil en la API de facturación: datos del PDF/XML, logo, certificado, Clave SOL/GRE, régimen.
+        Route::get('empresas/{empresa}/perfil-api', [PerfilApiController::class, 'show'])->middleware('throttle:60,1');
+        Route::put('empresas/{empresa}/perfil-api', [PerfilApiController::class, 'update'])->middleware('throttle:credenciales');
+        Route::post('empresas/{empresa}/perfil-api/logo', [PerfilApiController::class, 'logo'])->middleware('throttle:credenciales');
+        Route::post('empresas/{empresa}/perfil-api/certificado', [PerfilApiController::class, 'certificado'])->middleware('throttle:credenciales');
         Route::get('empresas/{empresa}/usuarios', [UsuarioEmpresaController::class, 'index']);
         Route::post('empresas/{empresa}/usuarios', [UsuarioEmpresaController::class, 'store']);
         Route::put('empresas/{empresa}/usuarios/{usuario}', [UsuarioEmpresaController::class, 'update']);

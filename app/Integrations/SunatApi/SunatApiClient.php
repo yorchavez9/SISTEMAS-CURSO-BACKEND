@@ -67,16 +67,31 @@ class SunatApiClient
         return $this->send('DELETE', $path, []);
     }
 
-    private function request(): PendingRequest
+    /**
+     * POST multipart/form-data (logo, certificado).
+     *
+     * @param  list<array{name: string, contents: string, filename?: string}>  $partes
+     */
+    public function postMultipart(string $path, array $partes): SunatApiResponse
     {
-        return Http::baseUrl($this->baseUrl)
+        return $this->send('POST', $path, ['multipart' => $partes], multipart: true);
+    }
+
+    private function request(bool $multipart = false): PendingRequest
+    {
+        $req = Http::baseUrl($this->baseUrl);
+        if ($multipart) {
+            $req->asMultipart();
+        }
+
+        return $req
             ->acceptJson()
             ->withHeaders(['X-Api-Key' => $this->apiKey, 'X-Api-Secret' => $this->apiSecret])
             ->timeout($this->timeout)
             ->connectTimeout($this->connectTimeout);
     }
 
-    private function send(string $method, string $path, array $options): SunatApiResponse
+    private function send(string $method, string $path, array $options, bool $multipart = false): SunatApiResponse
     {
         for ($intento = 0; ; $intento++) {
             if ($this->limitador && ! $this->limitador->reservar($this->cuenta)) {
@@ -85,7 +100,7 @@ class SunatApiClient
 
             $started = microtime(true);
             try {
-                $response = $this->request()->send($method, ltrim($path, '/'), $options);
+                $response = $this->request($multipart)->send($method, ltrim($path, '/'), $options);
             } catch (ConnectionException $e) {
                 throw new SunatApiConnectionException('No se pudo conectar con la API de facturación: '.$e->getMessage(), previous: $e);
             }

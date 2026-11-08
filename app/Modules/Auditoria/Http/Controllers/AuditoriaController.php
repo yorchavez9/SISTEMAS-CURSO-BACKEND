@@ -14,7 +14,7 @@ class AuditoriaController extends Controller
 {
     /** Nombre legible de cada evento registrado por el sistema. */
     public const EVENTOS = [
-        'empresa.creada' => 'Empresa creada', 'empresa.actualizada' => 'Empresa actualizada',
+        'empresa.creada' => 'Empresa creada', 'empresa.actualizada' => 'Empresa actualizada', 'empresa.perfil_api' => 'Perfil de facturación actualizado', 'empresa.logo' => 'Logo actualizado', 'empresa.certificado' => 'Certificado digital actualizado',
         'credenciales_api.creadas' => 'Credenciales API registradas', 'credenciales_api.actualizadas' => 'Credenciales API actualizadas',
         'credenciales_api.verificadas' => 'Credenciales API probadas', 'credenciales_api.eliminadas' => 'Credenciales API eliminadas',
         'sincronizacion_api.importada' => 'Establecimientos y series sincronizados',
