@@ -26,11 +26,11 @@ class DashboardController extends Controller
 
         $porDia = $this->m->base($e, $hoy->copy()->subDays(29)->toDateString(), $d)
             ->selectRaw('comprobantes.fecha_emision as fecha, SUM('.MetricasService::SIGNO.' * comprobantes.total) as total, COUNT(*) as n')
-            ->groupBy('comprobantes.fecha_emision')->pluck('total', 'fecha');
+            ->groupBy('comprobantes.fecha_emision')->get()->keyBy('fecha');
         $serie = [];
         for ($i = 29; $i >= 0; $i--) {
             $f = $hoy->copy()->subDays($i)->toDateString();
-            $serie[] = ['fecha' => $f, 'total' => round((float) ($porDia[$f] ?? 0), 2)];
+            $serie[] = ['fecha' => $f, 'total' => round((float) ($porDia[$f]->total ?? 0), 2), 'comprobantes' => (int) ($porDia[$f]->n ?? 0)];
         }
 
         $estados = DB::table('comprobantes')->where('empresa_id', $e)->whereDate('fecha_emision', '>=', $iniMes)
