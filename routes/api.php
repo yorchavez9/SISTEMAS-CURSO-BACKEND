@@ -18,6 +18,7 @@ use App\Modules\Inventario\Http\Controllers\InventarioController;
 use App\Modules\Ventas\Http\Controllers\PreviewController;
 use App\Modules\Ventas\Http\Controllers\VentaController;
 use App\Modules\Empresas\Http\Controllers\CredencialApiController;
+use App\Modules\Empresas\Http\Controllers\ConsultaDocumentosController;
 use App\Modules\Empresas\Http\Controllers\EmpresaController;
 use App\Modules\Empresas\Http\Controllers\PerfilApiController;
 use App\Modules\Empresas\Http\Controllers\EstablecimientoSerieController;
@@ -48,6 +49,10 @@ Route::prefix('v1')->group(function () {
 
         Route::get('roles', [UsuarioEmpresaController::class, 'roles']);
         // Perfil en la API de facturación: datos del PDF/XML, logo, certificado, Clave SOL/GRE, régimen.
+        // Proveedor de consulta RUC/DNI (API de facturación o Decolecta con token propio).
+        Route::get('empresas/{empresa}/consulta-documentos', [ConsultaDocumentosController::class, 'show']);
+        Route::put('empresas/{empresa}/consulta-documentos', [ConsultaDocumentosController::class, 'update'])->middleware('throttle:credenciales');
+        Route::post('empresas/{empresa}/consulta-documentos/probar', [ConsultaDocumentosController::class, 'probar'])->middleware('throttle:credenciales');
         Route::get('empresas/{empresa}/perfil-api', [PerfilApiController::class, 'show'])->middleware('throttle:60,1');
         Route::put('empresas/{empresa}/perfil-api', [PerfilApiController::class, 'update'])->middleware('throttle:credenciales');
         Route::post('empresas/{empresa}/perfil-api/logo', [PerfilApiController::class, 'logo'])->middleware('throttle:credenciales');

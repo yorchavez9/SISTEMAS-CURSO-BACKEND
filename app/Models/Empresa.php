@@ -14,6 +14,9 @@ class Empresa extends Model
 
     public const ENTORNOS = ['pruebas', 'produccion'];
 
+    /** El token del proveedor de consulta nunca se serializa. */
+    protected $hidden = ['consulta_token'];
+
     protected $fillable = [
         'ruc', 'razon_social', 'nombre_comercial', 'direccion', 'ubigeo',
         'departamento', 'provincia', 'distrito', 'email', 'telefono', 'entorno_activo', 'activo', 'permitir_stock_negativo', 'envio_boletas',
@@ -28,7 +31,8 @@ class Empresa extends Model
 
     protected function casts(): array
     {
-        return ['activo' => 'boolean', 'permitir_stock_negativo' => 'boolean'];
+        // consulta_token: token del proveedor de consulta RUC/DNI, cifrado con APP_KEY (nunca va al navegador).
+        return ['activo' => 'boolean', 'permitir_stock_negativo' => 'boolean', 'consulta_token' => 'encrypted'];
     }
 
     public function usuarios(): BelongsToMany

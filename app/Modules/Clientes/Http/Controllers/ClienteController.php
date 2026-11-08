@@ -8,9 +8,9 @@ use App\Http\Controllers\Controller;
 use App\Integrations\SunatApi\Exceptions\CredencialesNoConfiguradasException;
 use App\Integrations\SunatApi\Exceptions\SunatApiConnectionException;
 use App\Integrations\SunatApi\Exceptions\SunatApiRateLimitException;
-use App\Integrations\SunatApi\SunatApiClientFactory;
 use App\Models\Cliente;
 use App\Modules\Clientes\DocumentoIdentidad;
+use App\Modules\Clientes\Services\ConsultaDocumentoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -75,7 +75,7 @@ class ClienteController extends Controller
      * Busca RUC/DNI: primero en los clientes de la empresa; si no existe, consulta la API
      * (GET /buscar-documento, que usa SUNAT/RENIEC). No guarda nada.
      */
-    public function consultarDocumento(Request $request, SunatApiClientFactory $factory): JsonResponse
+    public function consultarDocumento(Request $request, ConsultaDocumentoService $consulta): JsonResponse
     {
         $data = $request->validate(['tipo' => ['required', Rule::in(['1', '6'])], 'numero' => ['required', 'string']]);
         if ($err = DocumentoIdentidad::error($data['tipo'], $data['numero'])) {
@@ -85,22 +85,25 @@ class ClienteController extends Controller
             return response()->json(['data' => ['existe' => true, 'cliente' => $this->dto($local), 'fuente' => 'sistema']]);
         }
 
-        $cacheKey = "doc:{$data['tipo']}:{$data['numero']}";
+        $empresa = $this->empresa->get();
+        $cacheKey = "doc:{$empresa->id}:{$empresa->consulta_proveedor}:{$data['tipo']}:{$data['numero']}";
         try {
-            $res = Cache::remember($cacheKey, 86400, function () use ($factory, $data) {
-                $r = $factory->paraEmpresa($this->empresa->get())->get('/buscar-documento', ['tipo' => $data['tipo'], 'numero' => $data['numero']]);
-
-                return $r->ok() && is_array($r->datos()) ? $r->datos() : ['__error' => $r->mensaje() ?? "HTTP {$r->status}"];
-            });
+            $res = Cache::get($cacheKey);
+            if (! $res) {
+                [$datos, $error] = $consulta->consultar($empresa, $data['tipo'], $data['numero']);
+                $res = $datos ?? ['__error' => $error];
+                if ($datos) {
+                    Cache::put($cacheKey, $datos, 86400); // solo se guardan en caché las consultas exitosas
+                }
+            }
         } catch (CredencialesNoConfiguradasException) {
-            abort(409, 'Configura las credenciales de la API para consultar documentos.');
+            abort(409, 'Configura las credenciales de la API (o un proveedor de consulta con token) para consultar documentos.');
         } catch (SunatApiRateLimitException) {
             abort(429, 'La API está ocupada. Intenta en un minuto.');
         } catch (SunatApiConnectionException) {
             abort(503, 'No se pudo conectar con la API de facturación.');
         }
         if (isset($res['__error'])) {
-            Cache::forget($cacheKey);
             abort(404, 'No se encontraron datos para ese documento: '.$res['__error']);
         }
 
@@ -111,7 +114,7 @@ class ClienteController extends Controller
             ? "El contribuyente figura en SUNAT como $estado / $condicion."
             : null;
 
-        return response()->json(['data' => ['existe' => false, 'fuente' => $res['source'] ?? $res['fuente'] ?? 'api',
+        return response()->json(['data' => ['existe' => false, 'fuente' => $res['fuente'] ?? 'api',
             'estado' => $estado, 'condicion' => $condicion, 'advertencia' => $advertencia, 'cliente' => [
             'tipo_documento' => (string) ($res['tipo_doc'] ?? $data['tipo']),
             'numero_documento' => (string) ($res['num_doc'] ?? $data['numero']),

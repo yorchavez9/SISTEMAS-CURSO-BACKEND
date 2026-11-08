@@ -40,6 +40,11 @@ return [
     | Solo la URL y el timeout viven aquí: las credenciales (X-Api-Key / X-Api-Secret)
     | se ingresan desde Configuración → Credenciales API y se guardan cifradas por empresa.
     */
+    // Proveedor opcional de consulta RUC/DNI (token por empresa, en Configuración → Credenciales API).
+    'decolecta' => [
+        'base_url' => env('DECOLECTA_BASE_URL', 'https://api.decolecta.com'),
+    ],
+
     'sunat_api' => [
         'base_url' => env('SUNAT_API_BASE_URL', 'https://sunat.kodevo.es/api/v1'),
         'timeout' => (int) env('SUNAT_API_TIMEOUT', 60),

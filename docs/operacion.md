@@ -82,6 +82,19 @@ Al registrar una venta se abre el detalle del comprobante con el botón **Imprim
 - El certificado, su contraseña, la Clave SOL y el client_secret se envían directo a la API: **no se guardan en el sistema**, no se muestran y en el historial de llamadas figuran como `***`.
 - Si otro sistema usa la misma cuenta de la API, verá los mismos cambios.
 
+## Consulta de RUC y DNI
+
+Al registrar un cliente, el sistema completa razón social, nombre y dirección consultando SUNAT (RUC) o RENIEC (DNI). El proveedor se elige en **Configuración → Credenciales API → Consulta de RUC y DNI**:
+
+| Proveedor | Token | Cómo funciona |
+|---|---|---|
+| **API de facturación** (por defecto) | No necesita otro | `GET /buscar-documento` de la API de facturación, con sus mismas credenciales |
+| **Decolecta** | Propio, de [decolecta.com/profile](https://decolecta.com/profile) | `GET https://api.decolecta.com/v1/sunat/ruc?numero=` y `/v1/reniec/dni?numero=` con `Authorization: Bearer <token>`. Si falla, se usa la API de facturación como respaldo |
+
+- El token se guarda **cifrado** en la base (con `APP_KEY`), nunca vuelve al navegador (solo se muestran sus 4 últimos caracteres) y no aparece en la auditoría.
+- **Probar** consulta el RUC público de SUNAT (20131312955) con el proveedor elegido, antes o después de guardar.
+- Las consultas exitosas se guardan 24 horas en caché para no repetir llamadas.
+
 ## Series y serie predeterminada
 
 En **Configuración → Establecimientos y series**, cada serie tiene dos interruptores:
