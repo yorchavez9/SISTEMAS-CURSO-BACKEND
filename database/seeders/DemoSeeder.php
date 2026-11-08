@@ -10,11 +10,12 @@ use App\Models\ProductoPresentacion;
 use App\Models\Stock;
 use App\Models\User;
 use App\Modules\Inventario\Services\InventarioService;
+use App\Modules\Productos\Services\ImagenProductoService;
 use Illuminate\Database\Seeder;
 
 /**
  * Datos de DEMOSTRACIÓN para una empresa ya registrada: categorías, productos (gravados, exonerados,
- * con ICBPER y servicios), presentaciones, clientes y stock inicial en cada almacén para TODOS los bienes
+ * con ICBPER y servicios), presentaciones, clientes, imagen de cada producto y stock inicial en cada almacén para TODOS los bienes
  * de la empresa (también los que creó el usuario) que aún no tengan existencias.
  *
  *   php artisan db:seed --class=DemoSeeder --force
@@ -90,7 +91,7 @@ class DemoSeeder extends Seeder
         ['1', '40000002', 'CLIENTE DEMO DOS', 'JR. MUESTRA 456, LIMA'],
     ];
 
-    public function run(InventarioService $inventario): void
+    public function run(InventarioService $inventario, ImagenProductoService $imagenes): void
     {
         $ruc = env('DEMO_EMPRESA_RUC');
         $empresa = $ruc ? Empresa::where('ruc', $ruc)->first() : Empresa::orderBy('id')->first();
@@ -150,6 +151,11 @@ class DemoSeeder extends Seeder
             );
         }
         $this->command->line('  Clientes: '.count(self::CLIENTES));
+
+        // Imágenes: ilustración (color e ícono de la categoría) para todo producto sin foto; no toca las fotos subidas.
+        $sinImagen = Producto::withoutGlobalScopes()->with('categoria')->where('empresa_id', $empresa->id)->whereNull('imagen')->whereNull('deleted_at')->get();
+        $sinImagen->each(fn (Producto $p) => $imagenes->generar($p));
+        $this->command->line('  Imágenes generadas: '.$sinImagen->count());
 
         // Stock inicial en TODOS los almacenes (se crea el "Almacén principal" de cada establecimiento si aún no existe)
         // para TODOS los bienes de la empresa que controlan stock y no tienen existencias: los de demostración con su

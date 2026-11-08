@@ -77,6 +77,8 @@ Route::prefix('v1')->group(function () {
         Route::post('productos', [ProductoController::class, 'store'])->middleware('empresa:productos.crear');
         Route::put('productos/{producto}', [ProductoController::class, 'update'])->middleware('empresa:productos.editar');
         Route::delete('productos/{producto}', [ProductoController::class, 'destroy'])->middleware('empresa:productos.eliminar');
+        Route::post('productos/{producto}/imagen', [ProductoController::class, 'subirImagen'])->middleware(['empresa:productos.editar', 'throttle:30,1']);
+        Route::delete('productos/{producto}/imagen', [ProductoController::class, 'quitarImagen'])->middleware('empresa:productos.editar');
         Route::get('categorias', [ProductoController::class, 'categorias'])->middleware('empresa:productos.ver');
         Route::post('categorias', [ProductoController::class, 'storeCategoria'])->middleware('empresa:productos.crear');
         Route::delete('categorias/{categoria}', [ProductoController::class, 'destroyCategoria'])->middleware('empresa:productos.eliminar');

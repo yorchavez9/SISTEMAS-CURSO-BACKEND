@@ -20,7 +20,7 @@ class AuditoriaController extends Controller
         'sincronizacion_api.importada' => 'Establecimientos y series sincronizados',
         'usuario.creado' => 'Usuario creado', 'usuario.agregado_a_empresa' => 'Usuario agregado a la empresa', 'usuario.actualizado' => 'Usuario actualizado', 'usuario.retirado_de_empresa' => 'Usuario retirado de la empresa',
         'cliente.creado' => 'Cliente creado', 'cliente.actualizado' => 'Cliente actualizado', 'cliente.eliminado' => 'Cliente eliminado',
-        'producto.creado' => 'Producto creado', 'producto.actualizado' => 'Producto actualizado', 'producto.eliminado' => 'Producto eliminado',
+        'producto.creado' => 'Producto creado', 'producto.actualizado' => 'Producto actualizado', 'producto.eliminado' => 'Producto eliminado', 'producto.imagen' => 'Imagen de producto',
         'venta.registrada' => 'Venta registrada', 'comprobante.reintento' => 'Reintento de envío de comprobante',
         'nota_credito.emitida' => 'Nota de crédito emitida', 'nota_debito.emitida' => 'Nota de débito emitida',
         'baja.solicitada' => 'Baja solicitada', 'baja.aceptada' => 'Baja aceptada por SUNAT',

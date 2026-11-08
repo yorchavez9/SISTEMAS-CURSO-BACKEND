@@ -11,6 +11,7 @@ use App\Integrations\SunatApi\Exceptions\SunatApiRateLimitException;
 use App\Integrations\SunatApi\SunatApiClientFactory;
 use App\Models\Categoria;
 use App\Models\Producto;
+use App\Modules\Productos\Services\ImagenProductoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -20,7 +21,7 @@ use Illuminate\Validation\ValidationException;
 
 class ProductoController extends Controller
 {
-    public function __construct(private readonly EmpresaActual $empresa, private readonly Auditor $auditor) {}
+    public function __construct(private readonly EmpresaActual $empresa, private readonly Auditor $auditor, private readonly ImagenProductoService $imagenes) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -53,6 +54,7 @@ class ProductoController extends Controller
 
             return $p;
         });
+        $this->imagenes->generar($producto->load('categoria')); // ilustración hasta que se suba una foto
         $this->auditor->registrar('producto.creado', $producto, [], $producto->only(['codigo', 'descripcion', 'precio_venta', 'tip_afe_igv']));
 
         return response()->json(['data' => $this->dto($producto->load(['categoria:id,nombre', 'presentaciones'])), 'message' => 'Producto registrado.'], 201);
@@ -70,8 +72,28 @@ class ProductoController extends Controller
             }
         });
         $this->auditor->registrar('producto.actualizado', $producto, $antes, $producto->only(array_keys($data)));
+        $this->imagenes->generar($producto->fresh('categoria')); // si es ilustración, se actualiza con el nuevo nombre/categoría
 
         return response()->json(['data' => $this->dto($producto->fresh(['categoria:id,nombre', 'presentaciones'])), 'message' => 'Producto actualizado.']);
+    }
+
+    /** Sube la foto del producto (JPG, PNG o WebP, hasta 4 MB); se reduce a 800 px y se guarda en WebP. */
+    public function subirImagen(Request $request, Producto $producto): JsonResponse
+    {
+        $request->validate(['imagen' => ['required', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096']], [], ['imagen' => 'imagen']);
+        $this->imagenes->subir($producto, $request->file('imagen'));
+        $this->auditor->registrar('producto.imagen', $producto, [], ['codigo' => $producto->codigo, 'imagen' => 'foto']);
+
+        return response()->json(['data' => $this->dto($producto->fresh(['categoria:id,nombre', 'presentaciones'])), 'message' => 'Imagen actualizada.']);
+    }
+
+    /** Quita la foto: el producto vuelve a la ilustración generada. */
+    public function quitarImagen(Producto $producto): JsonResponse
+    {
+        $this->imagenes->quitar($producto->load('categoria'));
+        $this->auditor->registrar('producto.imagen', $producto, [], ['codigo' => $producto->codigo, 'imagen' => 'ilustracion']);
+
+        return response()->json(['data' => $this->dto($producto->fresh(['categoria:id,nombre', 'presentaciones'])), 'message' => 'Se quitó la foto.']);
     }
 
     public function destroy(Producto $producto): JsonResponse
@@ -192,6 +214,7 @@ class ProductoController extends Controller
         return [
             'id' => $p->id, 'codigo' => $p->codigo, 'descripcion' => $p->descripcion, 'tipo' => $p->tipo,
             'categoria' => $p->categoria ? ['id' => $p->categoria->id, 'nombre' => $p->categoria->nombre] : null,
+            'imagen_url' => $this->imagenes->url($p), 'imagen_generada' => $this->imagenes->esGenerada($p),
             'codigo_barras' => $p->codigo_barras, 'cod_producto_sunat' => $p->cod_producto_sunat, 'unidad' => $p->unidad, 'moneda' => $p->moneda,
             'precio_venta' => (float) $p->precio_venta, 'costo' => (float) $p->costo, 'tip_afe_igv' => $p->tip_afe_igv,
             'porcentaje_isc' => $p->porcentaje_isc !== null ? (float) $p->porcentaje_isc : null,

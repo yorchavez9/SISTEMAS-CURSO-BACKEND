@@ -142,9 +142,14 @@ Después de guardar:
 cd ~/domains/cursoapi.kodevo.es/backend
 php artisan migrate --force
 php artisan db:seed --force        # OBLIGATORIO: permisos y catálogos SUNAT (unidades de medida, afectaciones del IGV, motivos…)
+php artisan storage:link           # OBLIGATORIO: publica las imágenes de los productos en /storage
 php artisan config:cache
 php artisan route:cache
 ```
+
+> Si `storage:link` falla (algunos planes desactivan la función `symlink` de PHP), crea el enlace por SSH:
+> `cd ~/domains/cursoapi.kodevo.es/backend && ln -s ../storage/app/public public/storage`.
+> Comprueba que una imagen abre: `https://cursoapi.kodevo.es/storage/productos/...` (la ruta aparece en el listado de productos).
 
 > Sin `db:seed` los formularios quedan vacíos (no hay unidades de medida ni tipos de afectación) y no se pueden crear productos ni emitir. Es seguro ejecutarlo varias veces: no duplica ni borra nada.
 
@@ -249,7 +254,7 @@ Si las cuatro comprobaciones salen bien, el sistema está listo.
 3. **Configuración → Credenciales API:** ingresa `api_key` y `api_secret` del entorno de **pruebas (beta)** y pulsa **Probar conexión**. Se guardan cifradas.
 4. **Configuración → Establecimientos y series:** sincroniza con la API. Si otro sistema emite con la misma cuenta, crea **series propias** (p. ej. F002/B002) y márcalas como predeterminadas.
 5. Emite una boleta de prueba de S/ 1.00 y confirma en **Comprobantes** que llega a **Aceptado** y que se pueden descargar XML, CDR y PDF (si se queda en "Por enviar", revisa el cron del paso 6).
-6. **Opcional — datos de demostración** (categorías, 28 productos, presentaciones, clientes y **stock inicial para todos los productos** en todos los almacenes, incluidos los que hayas creado tú), útil para cursos o pruebas. Requiere haber registrado la empresa y sincronizado los establecimientos (el seeder crea el almacén principal de cada uno si falta):
+6. **Opcional — datos de demostración** (categorías, 28 productos con su **imagen**, presentaciones, clientes y **stock inicial para todos los productos** en todos los almacenes, incluidos los que hayas creado tú), útil para cursos o pruebas. Requiere haber registrado la empresa y sincronizado los establecimientos (el seeder crea el almacén principal de cada uno si falta):
    ```bash
    cd ~/domains/cursoapi.kodevo.es/backend
    php artisan db:seed --class=DemoSeeder --force
@@ -257,6 +262,8 @@ Si las cuatro comprobaciones salen bien, el sistema está listo.
    DEMO_EMPRESA_RUC=20123456789 php artisan db:seed --class=DemoSeeder --force
    ```
    No emite comprobantes ni llama a la API de facturación, y no duplica datos si se ejecuta otra vez. **No lo uses en una empresa real.**
+
+   Imágenes: todo producto nuevo recibe una **ilustración** (color e ícono de su categoría) hasta que se le suba una foto desde **Productos → Editar → Subir foto**. Para los productos que existían antes de esta función: `php artisan productos:imagenes` (no toca las fotos subidas).
 7. Para pasar a producción real con SUNAT, sigue [despliegue.md §10](despliegue.md#10-paso-de-pruebas-beta-a-producción).
 
 ---
@@ -273,6 +280,8 @@ git pull
 composer install --no-dev --optimize-autoloader
 php artisan migrate --force
 php artisan db:seed --force        # actualiza permisos y catálogos SUNAT
+php artisan storage:link           # si aún no existe public/storage (imágenes de productos)
+php artisan productos:imagenes     # ilustración para los productos que no tengan imagen
 php artisan config:cache && php artisan route:cache
 php artisan up
 ```
@@ -300,6 +309,7 @@ php artisan up
 | "No se pueden descifrar las credenciales" | Cambió `APP_KEY` | Restaura la `APP_KEY` anterior o vuelve a ingresar las credenciales de cada empresa |
 | `composer install` falla por extensiones | Falta alguna extensión de PHP | Actívala en *Configuración de PHP* (paso 1) |
 | Cambié el `.env` y no se nota | Configuración en caché | `php artisan config:cache` |
+| Las imágenes de los productos no se ven (ícono gris) | Falta el enlace `public/storage` o `APP_URL` no es la dirección del backend | `php artisan storage:link` (o el `ln -s` del paso 5) y revisa `APP_URL=https://cursoapi.kodevo.es`; luego `config:cache` |
 | Sin unidades de medida ni tipos de IGV en los formularios; no se pueden crear productos | No se ejecutó el seeder base (o, en versiones anteriores, quedó en caché la lista vacía) | `php artisan db:seed --force` y `php artisan cache:clear`; luego Ctrl+F5 en el navegador. Para comprobar: `php artisan tinker --execute="echo DB::table('tipos_afectacion_igv')->count();"` debe dar 19 |
 | `DemoSeeder` dice "No hay empresas registradas" | Aún no se registró la empresa | Regístrala en el sistema y vuelve a ejecutarlo |
 | `DemoSeeder` crea productos pero no stock ("Sin establecimientos") | Aún no se sincronizaron los establecimientos | Sincroniza *Establecimientos y series* y vuelve a ejecutarlo (solo agrega lo que falta) |

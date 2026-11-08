@@ -46,6 +46,7 @@ Revisa en `.env`:
 ```bash
 php artisan migrate
 php artisan db:seed                     # permisos y catálogos SUNAT (obligatorio)
+php artisan storage:link                # imágenes de los productos (obligatorio)
 php artisan serve --host=127.0.0.1 --port=8000
 ```
 

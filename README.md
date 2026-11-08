@@ -17,7 +17,7 @@ Sistema de ventas multiempresa con emisión de comprobantes electrónicos (factu
 
 - **Empresas y configuración:** varias empresas por instalación, establecimientos y series sincronizados con la API, credenciales de la API cifradas en la base de datos, régimen y tasa de IGV.
 - **Usuarios y roles:** administrador, supervisor, vendedor y contador, asignados por empresa. El primer acceso crea el superadministrador.
-- **Comercial:** clientes (validación de RUC/DNI con la API), productos y servicios con presentaciones, ventas al contado y al crédito con cuotas.
+- **Comercial:** clientes (validación de RUC/DNI con la API), productos y servicios con imagen (foto o ilustración automática) y presentaciones, ventas al contado y al crédito con cuotas.
 - **Facturación electrónica:** facturas y boletas con todas las afectaciones de IGV validadas, notas de crédito y débito, comunicaciones de baja (RA), resúmenes de anulación y de envío de boletas (RC), descarga de XML, CDR y PDF.
 - **Cotizaciones:** propuestas de precio con seguimiento de estado y conversión en venta con un clic. Se imprimen desde el navegador.
 - **Guías de remisión:** guía remitente electrónica (tipo 09) con transporte público, privado o vehículo M1/L, y traslado entre establecimientos propios. Se puede emitir desde una factura o boleta.
@@ -48,6 +48,7 @@ composer install
 cp .env.example .env && php artisan key:generate
 php artisan migrate
 php artisan db:seed                                # permisos y catálogos SUNAT (obligatorio)
+php artisan storage:link                           # imágenes de los productos
 
 php artisan serve --host=127.0.0.1 --port=8000   # API
 php artisan schedule:work                          # otra terminal (opcional): sincroniza estados y resumen diario
