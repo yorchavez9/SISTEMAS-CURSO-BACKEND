@@ -33,9 +33,10 @@ class CredencialApiController extends Controller
     {
         Gate::authorize('gestionarCredenciales', $empresa);
         try {
-            $cred = $this->service->guardar($empresa, $entorno, $request->validated('api_key'), $request->validated('api_secret'), $request->user()->id);
+            $cred = $this->service->guardar($empresa, $entorno, $request->validated('api_key'), $request->validated('api_secret'), $request->user()->id,
+                $request->has('base_url') ? $request->validated('base_url') : false);
         } catch (\InvalidArgumentException $e) {
-            throw ValidationException::withMessages(['api_secret' => $e->getMessage()]);
+            throw ValidationException::withMessages([str_contains($e->getMessage(), 'Key') ? 'api_key' : 'api_secret' => $e->getMessage()]);
         }
 
         if ($request->boolean('verificar', true)) {

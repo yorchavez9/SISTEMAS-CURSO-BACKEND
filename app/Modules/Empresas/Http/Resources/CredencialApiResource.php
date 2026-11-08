@@ -16,6 +16,8 @@ class CredencialApiResource
             'entorno' => $entorno,
             'configurada' => $c !== null,
             'api_key_mascara' => $c ? '••••••••'.$c->api_key_ultimos4 : null,
+            // URL propia de este entorno (null = se usa la del .env, que llega como base_url en el listado).
+            'base_url' => $c?->base_url,
             'api_secret_configurado' => $c !== null,
             'verificado_at' => $c?->verificado_at?->toIso8601String(),
             'verificacion_ok' => $c?->verificacion_ok,

@@ -19,9 +19,13 @@ class CredencialesApiService
     /**
      * Guarda (cifradas) las credenciales. Si $apiSecret es null se conserva el secreto existente.
      */
-    public function guardar(Empresa $empresa, string $entorno, string $apiKey, #[\SensitiveParameter] ?string $apiSecret, ?int $userId): EmpresaApiCredencial
+    /**
+     * @param  string|null  $apiKey  null = conservar el guardado (solo al actualizar)
+     * @param  string|false|null  $baseUrl  false = no se envió (sin cambios); null o '' = usar la del .env
+     */
+    public function guardar(Empresa $empresa, string $entorno, ?string $apiKey, #[\SensitiveParameter] ?string $apiSecret, ?int $userId, string|false|null $baseUrl = false): EmpresaApiCredencial
     {
-        return DB::transaction(function () use ($empresa, $entorno, $apiKey, $apiSecret, $userId) {
+        return DB::transaction(function () use ($empresa, $entorno, $apiKey, $apiSecret, $userId, $baseUrl) {
             $cred = EmpresaApiCredencial::query()
                 ->where('empresa_id', $empresa->id)->where('entorno', $entorno)->lockForUpdate()->first();
             $nueva = $cred === null;
@@ -29,10 +33,17 @@ class CredencialesApiService
             if ($nueva && $apiSecret === null) {
                 throw new \InvalidArgumentException('El API Secret es obligatorio al registrar credenciales.');
             }
+            if ($nueva && $apiKey === null) {
+                throw new \InvalidArgumentException('El API Key es obligatorio al registrar credenciales.');
+            }
+            $apiKey ??= $cred->api_key;
 
             $cred ??= new EmpresaApiCredencial(['empresa_id' => $empresa->id, 'entorno' => $entorno]);
             $cambioKey = $nueva || $cred->api_key !== $apiKey;
             $cambioSecret = $apiSecret !== null && ($nueva || $cred->api_secret !== $apiSecret);
+            $nuevaUrl = $baseUrl === false ? $cred->base_url : (rtrim((string) $baseUrl, '/') ?: null);
+            $cambioUrl = $nuevaUrl !== $cred->base_url;
+            $cred->base_url = $nuevaUrl;
 
             $cred->api_key = $apiKey;
             if ($apiSecret !== null) {
@@ -40,7 +51,7 @@ class CredencialesApiService
             }
             $cred->api_key_ultimos4 = mb_substr($apiKey, -4);
             $cred->updated_by = $userId;
-            if ($cambioKey || $cambioSecret) {
+            if ($cambioKey || $cambioSecret || $cambioUrl) {
                 // Credenciales nuevas: la verificación anterior deja de ser válida.
                 $cred->fill(['verificado_at' => null, 'verificacion_ok' => null, 'verificacion_mensaje' => null, 'remoto' => null]);
             }
@@ -50,7 +61,7 @@ class CredencialesApiService
                 $nueva ? 'credenciales_api.creadas' : 'credenciales_api.actualizadas',
                 $cred,
                 [],
-                ['entorno' => $entorno, 'api_key' => '***'.$cred->api_key_ultimos4, 'api_secret_cambiado' => $cambioSecret],
+                ['entorno' => $entorno, 'api_key' => '***'.$cred->api_key_ultimos4, 'api_secret_cambiado' => $cambioSecret, 'base_url' => $cred->base_url],
                 $empresa->id,
             );
 
@@ -64,7 +75,7 @@ class CredencialesApiService
      */
     public function verificar(Empresa $empresa, EmpresaApiCredencial $cred): EmpresaApiCredencial
     {
-        $client = SunatApiClient::make($cred->api_key, $cred->api_secret, "empresa:{$empresa->id}:{$cred->entorno}");
+        $client = SunatApiClient::make($cred->api_key, $cred->api_secret, "empresa:{$empresa->id}:{$cred->entorno}", $cred->base_url);
         $ok = false;
         $remoto = null;
 

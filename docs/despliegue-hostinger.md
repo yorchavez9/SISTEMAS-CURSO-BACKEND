@@ -135,6 +135,8 @@ Qué hace cada una de las variables de sesión (si falla el login, revisa estas 
 > **`APP_KEY` es crítica.** Cifra las credenciales de la API de facturación guardadas en la base. Copia su valor a un lugar seguro. Si se pierde o se regenera, hay que volver a ingresar las credenciales de todas las empresas.
 >
 > Las credenciales de la API (`api_key` / `api_secret`) **no** van en `.env`: se ingresan desde el sistema (paso 9).
+>
+> `SUNAT_API_BASE_URL` es solo la URL **por defecto**. En **Configuración → Credenciales API** cada entorno (pruebas y producción) puede tener su propia **URL base de la API**; si se deja vacía, se usa la del `.env`.
 
 Después de guardar:
 

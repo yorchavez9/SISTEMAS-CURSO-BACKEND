@@ -34,12 +34,13 @@ class SunatApiClient
         $this->cuenta = $cuenta ?? 'key:'.substr(hash('sha256', $apiKey), 0, 16);
     }
 
-    public static function make(string $apiKey, #[\SensitiveParameter] string $apiSecret, ?string $cuenta = null): self
+    /** @param  string|null  $baseUrl  URL base guardada en las credenciales de la empresa; null = la del .env */
+    public static function make(string $apiKey, #[\SensitiveParameter] string $apiSecret, ?string $cuenta = null, ?string $baseUrl = null): self
     {
         return new self(
             $apiKey,
             $apiSecret,
-            rtrim((string) config('services.sunat_api.base_url'), '/'),
+            rtrim($baseUrl ?: (string) config('services.sunat_api.base_url'), '/'),
             (int) config('services.sunat_api.timeout'),
             (int) config('services.sunat_api.connect_timeout'),
             $cuenta,

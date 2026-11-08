@@ -14,7 +14,7 @@ class EmpresaApiCredencial extends Model
     protected $table = 'empresa_api_credenciales';
 
     protected $fillable = [
-        'empresa_id', 'entorno', 'api_key', 'api_secret', 'api_key_ultimos4',
+        'empresa_id', 'entorno', 'base_url', 'api_key', 'api_secret', 'api_key_ultimos4',
         'verificado_at', 'verificacion_ok', 'verificacion_mensaje', 'remoto', 'updated_by',
     ];
 

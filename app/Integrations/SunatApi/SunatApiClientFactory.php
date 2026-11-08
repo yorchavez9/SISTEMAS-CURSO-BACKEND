@@ -16,6 +16,6 @@ class SunatApiClientFactory
             throw new CredencialesNoConfiguradasException("La empresa {$empresa->ruc} no tiene credenciales API para el entorno '$entorno'.");
         }
 
-        return SunatApiClient::make($cred->api_key, $cred->api_secret, "empresa:{$empresa->id}:{$entorno}");
+        return SunatApiClient::make($cred->api_key, $cred->api_secret, "empresa:{$empresa->id}:{$entorno}", $cred->base_url);
     }
 }

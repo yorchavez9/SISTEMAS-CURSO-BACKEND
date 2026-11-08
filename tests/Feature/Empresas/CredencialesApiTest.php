@@ -173,4 +173,38 @@ class CredencialesApiTest extends TestCase
         $this->assertStringNotContainsString(self::KEY, $dump);
         $this->assertSame(0, EmpresaApiCredencial::count());
     }
+
+    public function test_url_base_propia_se_guarda_y_se_usa_en_todas_las_llamadas(): void
+    {
+        $propia = 'https://api-facturacion.miempresa.pe/api/v1';
+        Http::fake([
+            "$propia/empresa" => Http::response(['estado' => 'exito', 'datos' => ['ruc' => '20100000001', 'razon_social' => 'EMPRESA DEMO', 'entorno' => 'beta']]),
+            "$propia/suscripcion*" => Http::response(['estado' => 'exito', 'datos' => []]),
+        ]);
+        $url = "/api/v1/empresas/{$this->empresa->id}/credenciales-api/pruebas";
+        $this->actingAs($this->admin)->putJson($url, ['api_key' => 'pk_test_123456', 'api_secret' => 'sk_test_123456', 'base_url' => "$propia/"])
+            ->assertOk()->assertJsonPath('data.base_url', $propia)->assertJsonPath('data.verificacion_ok', true);
+        Http::assertSent(fn (Request $r) => $r->url() === "$propia/empresa");
+
+        // El cliente de la empresa (emisión, consultas…) usa esa URL.
+        $cliente = app(\App\Integrations\SunatApi\SunatApiClientFactory::class)->paraEmpresa($this->empresa->fresh());
+        $cliente->get('/empresa');
+        Http::assertSent(fn (Request $r) => str_starts_with($r->url(), $propia));
+
+        // Cambiar solo la URL (sin reescribir API Key ni Secret) invalida la verificación anterior; vacía vuelve a la del .env.
+        $this->actingAs($this->admin)->putJson($url, ['base_url' => '', 'verificar' => false])->assertOk()
+            ->assertJsonPath('data.base_url', null)->assertJsonPath('data.verificacion_ok', null);
+        $this->assertSame('pk_test_123456', $this->empresa->credencialApi('pruebas')->api_key);
+    }
+
+    public function test_url_base_debe_ser_https_y_sin_parametros(): void
+    {
+        $url = "/api/v1/empresas/{$this->empresa->id}/credenciales-api/pruebas";
+        foreach (['http://sunat.kodevo.es/api/v1', 'no-es-url', 'https://sunat.kodevo.es/api/v1?x=1'] as $mala) {
+            $this->actingAs($this->admin)->putJson($url, ['api_key' => 'pk_test_123456', 'api_secret' => 'sk_test_123456', 'base_url' => $mala])
+                ->assertUnprocessable()->assertJsonValidationErrors('base_url');
+        }
+        // Sin credenciales previas el API Key sigue siendo obligatorio.
+        $this->actingAs($this->admin)->putJson($url, ['api_secret' => 'sk_test_123456'])->assertUnprocessable()->assertJsonValidationErrors('api_key');
+    }
 }

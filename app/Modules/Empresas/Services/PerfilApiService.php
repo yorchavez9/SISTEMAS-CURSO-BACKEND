@@ -135,14 +135,18 @@ class PerfilApiService
         return $this->leer($empresa);
     }
 
+    private ?Empresa $empresaActual = null;
+
     private function api(Empresa $empresa): SunatApiClient
     {
+        $this->empresaActual = $empresa; // para armar la URL absoluta del logo con la URL base de sus credenciales
+
         return $this->factory->paraEmpresa($empresa);
     }
 
     private function origenApi(): string
     {
-        $u = parse_url((string) config('services.sunat_api.base_url'));
+        $u = parse_url((string) ($this->empresaActual?->credencialApi()?->base_url ?: config('services.sunat_api.base_url')));
 
         return ($u['scheme'] ?? 'https').'://'.($u['host'] ?? '').(isset($u['port']) ? ':'.$u['port'] : '');
     }
