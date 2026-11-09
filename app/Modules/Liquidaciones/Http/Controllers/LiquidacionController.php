@@ -107,7 +107,7 @@ class LiquidacionController extends Controller
             'items.*.unidad' => ['required', 'string', 'max:3'],
             'items.*.cod_producto_sunat' => ['required', 'regex:/^\d{8}$/'],
             'items.*.tip_afe_igv' => ['required', Rule::in(['10', '20', '30'])],
-        ], ['items.*.cod_producto_sunat.regex' => 'El código SUNAT tiene 8 dígitos.'], [
+        ], ['items.*.cod_producto_sunat.required' => 'Busca y elige el código SUNAT de cada bien.', 'items.*.cod_producto_sunat.regex' => 'El código SUNAT tiene 8 dígitos.'], [
             'items.*.cod_producto_sunat' => 'código SUNAT', 'vendedor.num_doc' => 'documento del vendedor', 'vendedor.nombre' => 'nombre del vendedor', 'vendedor.direccion' => 'dirección del vendedor', 'vendedor.ubigeo' => 'ubigeo del vendedor',
             'lugar.direccion' => 'lugar de la operación', 'lugar.ubigeo' => 'ubigeo del lugar', 'items.*.descripcion' => 'descripción', 'items.*.cantidad' => 'cantidad', 'items.*.valor_unitario' => 'valor unitario',
         ]);
