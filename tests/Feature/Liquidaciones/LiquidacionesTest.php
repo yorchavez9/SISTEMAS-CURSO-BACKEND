@@ -77,6 +77,25 @@ class LiquidacionesTest extends TestCase
             ->assertJsonPath('data.estado', 'aceptado')->assertJsonPath('data.renta', 15)->assertJsonPath('data.neto_a_pagar', 985)->assertJsonPath('data.revertible', true);
     }
 
+    public function test_exige_codigo_sunat_y_permite_corregir_un_envio_rechazado(): void
+    {
+        $sin = $this->body();
+        unset($sin['items'][0]['cod_producto_sunat']);
+        $this->actingAs($this->admin)->postJson('/api/v1/liquidaciones', $sin)->assertUnprocessable()->assertJsonValidationErrors('items.0.cod_producto_sunat');
+
+        // Liquidación antigua emitida sin código: la API la rechazó por validación.
+        $this->actingAs($this->admin)->postJson('/api/v1/liquidaciones', $this->body())->assertCreated();
+        $c = LiquidacionCompra::withoutGlobalScopes()->sole();
+        $items = [array_diff_key($c->items[0], ['cod_producto_sunat' => 1])];
+        $c->update(['estado' => 'error', 'items' => $items, 'payload' => [...$c->payload, 'items' => $items]]);
+        Http::fake(["{$this->base}/liquidaciones-compra" => Http::response($this->api('aceptado'), 201)]);
+
+        $this->actingAs($this->admin)->postJson("/api/v1/liquidaciones/{$c->id}/reintentar")->assertUnprocessable()->assertJsonValidationErrors('codigos');
+        Http::assertNothingSent();
+        $this->actingAs($this->admin)->postJson("/api/v1/liquidaciones/{$c->id}/reintentar", ['codigos' => ['10101500']])->assertOk()->assertJsonPath('data.estado', 'aceptado');
+        Http::assertSent(fn (Request $r) => $r->method() === 'POST' && $r['items'][0]['cod_producto_sunat'] === '10101500');
+    }
+
     public function test_numero_ocupado_se_renumera(): void
     {
         $this->actingAs($this->admin)->postJson('/api/v1/liquidaciones', $this->body())->assertCreated();

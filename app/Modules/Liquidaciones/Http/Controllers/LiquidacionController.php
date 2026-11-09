@@ -105,10 +105,10 @@ class LiquidacionController extends Controller
             'items.*.cantidad' => ['required', 'numeric', 'gt:0'],
             'items.*.valor_unitario' => ['required', 'numeric', 'gt:0'],
             'items.*.unidad' => ['required', 'string', 'max:3'],
-            'items.*.cod_producto_sunat' => ['nullable', 'regex:/^\d{8}$/'],
+            'items.*.cod_producto_sunat' => ['required', 'regex:/^\d{8}$/'],
             'items.*.tip_afe_igv' => ['required', Rule::in(['10', '20', '30'])],
-        ], [], [
-            'vendedor.num_doc' => 'documento del vendedor', 'vendedor.nombre' => 'nombre del vendedor', 'vendedor.direccion' => 'dirección del vendedor', 'vendedor.ubigeo' => 'ubigeo del vendedor',
+        ], ['items.*.cod_producto_sunat.regex' => 'El código SUNAT tiene 8 dígitos.'], [
+            'items.*.cod_producto_sunat' => 'código SUNAT', 'vendedor.num_doc' => 'documento del vendedor', 'vendedor.nombre' => 'nombre del vendedor', 'vendedor.direccion' => 'dirección del vendedor', 'vendedor.ubigeo' => 'ubigeo del vendedor',
             'lugar.direccion' => 'lugar de la operación', 'lugar.ubigeo' => 'ubigeo del lugar', 'items.*.descripcion' => 'descripción', 'items.*.cantidad' => 'cantidad', 'items.*.valor_unitario' => 'valor unitario',
         ]);
         if ($d['vendedor']['tipo_doc'] === '1' && ($err = DocumentoIdentidad::error('1', $d['vendedor']['num_doc']))) {
@@ -133,13 +133,22 @@ class LiquidacionController extends Controller
         return response()->json(['data' => self::dto($liquidacion->refresh()->load('usuario:id,name'), true)]);
     }
 
-    public function reintentar(LiquidacionCompra $liquidacion): JsonResponse
+    public function reintentar(Request $request, LiquidacionCompra $liquidacion): JsonResponse
     {
+        $codigos = $request->validate([
+            'codigos' => ['nullable', 'array'],
+            'codigos.*' => ['required', 'regex:/^\d{8}$/'],
+        ], ['codigos.*.regex' => 'El código SUNAT tiene 8 dígitos.'])['codigos'] ?? [];
         if ($liquidacion->esFinal() && $liquidacion->reversion_estado !== 'enviado') {
             throw ValidationException::withMessages(['estado' => "La liquidación ya está {$liquidacion->estado}."]);
         }
         if ($liquidacion->estado === 'error' && ! $liquidacion->api_id) {
-            $liquidacion->cambiarEstado('por_enviar', 'Reintento manual solicitado', ['intentos' => 0, 'ultimo_error' => null]);
+            // Un envío rechazado por validación no llegó a la API: aquí se completan los códigos que le faltaron.
+            $items = collect($liquidacion->items)->map(fn ($it, $i) => empty($it['cod_producto_sunat']) && isset($codigos[$i]) ? [...$it, 'cod_producto_sunat' => $codigos[$i]] : $it)->all();
+            if (collect($items)->contains(fn ($it) => empty($it['cod_producto_sunat']))) {
+                throw ValidationException::withMessages(['codigos' => 'Ingresa el código SUNAT de cada bien para reenviar.']);
+            }
+            $liquidacion->cambiarEstado('por_enviar', 'Reintento manual solicitado', ['intentos' => 0, 'ultimo_error' => null, 'items' => $items, 'payload' => [...$liquidacion->payload, 'items' => $items]]);
             $this->proceso->emitirLiquidacion($liquidacion);
         } else {
             $this->proceso->actualizarLiquidacion($liquidacion, forzar: true);
